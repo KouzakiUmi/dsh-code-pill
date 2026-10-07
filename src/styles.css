@@ -40,35 +40,44 @@ html body[data-ds-dark-theme] {
 
 /* ---- inline code：Antigravity 琥珀默认色 + VS Code token 色 ---- */
 html:root {
-  --dshcp-plain: #9a6700;
-  --dshcp-kwc: #af00db;
-  --dshcp-kwd: #0000ff;
-  --dshcp-str: #a31515;
-  --dshcp-com: #008000;
-  --dshcp-num: #098658;
-  --dshcp-fn: #795e26;
-  --dshcp-typ: #267f99;
-  --dshcp-cst: #001080;
-  --dshcp-prm: #001080;
+  --dshcp-plain: #916200;
+  --dshcp-kwc: #596f91;
+  --dshcp-kwd: #596f91;
+  --dshcp-str: #a04b26;
+  --dshcp-com: #737a70;
+  --dshcp-num: var(--dshcp-plain);
+  --dshcp-fn: var(--dshcp-plain);
+  --dshcp-typ: var(--dshcp-plain);
+  --dshcp-cst: var(--dshcp-plain);
+  --dshcp-prm: var(--dshcp-plain);
   --dshcp-badge-bg: rgba(154, 103, 0, 0.12);
 }
 html body[data-ds-dark-theme] {
-  --dshcp-plain: #d4a72c;
-  --dshcp-kwc: #c586c0;
-  --dshcp-kwd: #569cd6;
-  --dshcp-str: #ce9178;
-  --dshcp-com: #6a9955;
+  --dshcp-plain: #e2bf70;
+  --dshcp-kwc: #c5a2cd;
+  --dshcp-kwd: #8eb8dc;
+  --dshcp-str: #ceaa83;
+  --dshcp-com: #8fa67e;
   --dshcp-num: #b5cea8;
-  --dshcp-fn: #dcdcaa;
-  --dshcp-typ: #4ec9b0;
-  --dshcp-cst: #9cdcfe;
-  --dshcp-prm: #9cdcfe;
+  --dshcp-fn: var(--dshcp-plain);
+  --dshcp-typ: var(--dshcp-plain);
+  --dshcp-cst: var(--dshcp-plain);
+  --dshcp-prm: var(--dshcp-plain);
   --dshcp-badge-bg: rgba(212, 167, 44, 0.16);
 }
 
 /* pill 外观（底色/边框/圆角/字体沿用 DSH 原有 inline code 样式，只接管文字色） */
-code.dshcp-pill {
-  color: var(--dshcp-plain);
+html body code.dshcp-pill {
+  color: var(--dshcp-plain) !important;
+  background: rgba(145, 98, 0, 0.06) !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 3px !important;
+  padding: 0.08em 0.25em !important;
+  font-size: 0.88em;
+}
+html body[data-ds-dark-theme] code.dshcp-pill {
+  background: rgba(226, 191, 112, 0.045) !important;
 }
 
 /* 文件名语言徽章：data 属性 + ::before，不插入任何节点 */

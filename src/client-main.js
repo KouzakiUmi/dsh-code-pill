@@ -58,6 +58,7 @@ window.__ModuleLoader__.load({
 			function queue(code) {
 				if (code === null || code === undefined || code.nodeType !== 1) return;
 				if (code.closest("pre") !== null) return;
+				if (code.closest("a, button") !== null) return;
 				if (code.querySelector("button, a, svg") !== null) return;
 				pending.add(code);
 			}
@@ -67,14 +68,13 @@ window.__ModuleLoader__.load({
 				if (code.dataset.dshcpText === text) return;
 				code.dataset.dshcpText = text;
 				code.classList.add("dshcp-pill");
-				var badge = detectBadge(text);
-				if (badge !== null) code.dataset.dshcpBadge = badge;
-				else delete code.dataset.dshcpBadge;
+				delete code.dataset.dshcpBadge;
+				var mode = detectInlineMode(text);
 				var ranges = emptyRanges();
-				if (highlightOk && text.length > 0) {
+				if (highlightOk && mode !== "plain" && text.length > 0) {
 					var node = code.firstChild;
 					if (node !== null && node.nodeType === 3 && node.textContent === text) {
-						var bash = detectCommand(text);
+						var bash = mode === "shell";
 						var toks = tokenizeRanges(text, bash);
 						for (var t of toks) {
 							var range = document.createRange();
@@ -120,6 +120,8 @@ window.__ModuleLoader__.load({
 						var owner = parent !== null && parent.closest !== undefined ? parent.closest("code") : null;
 						if (owner !== null) queue(owner);
 					} else if (m.type === "childList") {
+						var changedCode = m.target.closest !== undefined ? m.target.closest("code") : null;
+						if (changedCode !== null) queue(changedCode);
 						for (var node of m.removedNodes) {
 							if (node.nodeType !== 1) continue;
 							if (node.tagName === "CODE") { if (codeRanges.delete(node)) dirty = true; }

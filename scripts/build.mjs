@@ -24,7 +24,7 @@ const cssLiteral = '`' + css
 // replace 用回调形式，避免 tokenizer 源码里的 $ 序列被当作替换模式。
 const out = template
   .replace('/* __TOKENIZER__ */', () => tokenizer)
-  .replace('/* __CSS__ */', () => cssLiteral)
+  .replace('/* __CSS__ */', () => 'var CSS_TEXT = ' + cssLiteral + ';')
 
 if (out.includes('__TOKENIZER__') || out.includes('__CSS__')) {
   throw new Error('placeholder replacement failed')

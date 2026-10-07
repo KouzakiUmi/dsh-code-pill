@@ -10,7 +10,7 @@ import { createRequire } from 'node:module'
 import assert from 'node:assert/strict'
 
 const require = createRequire(import.meta.url)
-const { tokenizeRanges, detectBadge, detectCommand } = require('../src/tokenizer.cjs')
+const { tokenizeRanges, detectBadge, detectCommand, detectInlineMode } = require('../src/tokenizer.cjs')
 
 /** 断言 src 的着色类别序列（按出现顺序）等于 expected。 */
 function assertClasses(src, expected, options = {}) {
@@ -163,4 +163,17 @@ test('ranges slice back to source', () => {
   }
 })
 
+test('inline prose, file paths and URLs remain uniform', () => {
+  for (const text of ['CSS_TEXT', 'MutationObserver', 'JS', 'JSON', '--flag', '$VAR', 'data-*', '::before', '.shiki-*', 'package.json', 'src/tokenizer.cjs', 'C:\\Program Files\\DSH NEXT\\lib\\index.js', 'local-plugins/dsh-code-pill', 'https://example.com', 'nodeValue', 'obj.type']) {
+    assert.equal(detectInlineMode(text), 'plain', text)
+  }
+})
+test('only explicit snippets and complete command words enable syntax', () => {
+  assert.equal(detectInlineMode('node scripts/build.mjs'), 'shell')
+  assert.equal(detectInlineMode('git commit -m "fix"'), 'shell')
+  assert.equal(detectInlineMode('const value = 42'), 'code')
+  assert.equal(detectInlineMode('print("hi")'), 'code')
+  assert.equal(detectCommand('nodeValue = 3'), false)
+  assert.equal(detectCommand('git.commit()'), false)
+})
 console.log(`dsh-code-pill tokenizer: ${passed} tests passed`)

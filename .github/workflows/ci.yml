@@ -1,0 +1,27 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: node scripts/build.mjs && git diff --exit-code -- lib/client.js
+      - run: node scripts/check-manifest.mjs && node --check lib/client.js
+      - run: node tests/tokenizer.test.mjs && node tests/client-smoke.test.mjs
+      - run: node tests/browser-render.test.mjs
+      - run: npm pack --ignore-scripts --json > pack.json && node scripts/prepare-release.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: verified-package
+          path: dist/
+          if-no-files-found: error

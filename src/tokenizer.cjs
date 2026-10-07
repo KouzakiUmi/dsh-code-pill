@@ -145,7 +145,20 @@ function detectBadge(src) {
 function detectCommand(src) {
   if (typeof src !== 'string') return false;
   var m = /^\s*([A-Za-z][\w-]*)/.exec(src);
-  return m !== null && COMMANDS.has(m[1]);
+  return m !== null && COMMANDS.has(m[1]) && (src[m[0].length] === undefined || /\s/.test(src[m[0].length]));
+}
+
+// 行内文字先判语境，避免把路径、文件名、术语当作表达式拆色。
+function detectInlineMode(src) {
+  if (typeof src !== 'string') return 'plain';
+  var s = src.trim();
+  if (!s || detectBadge(s) !== null || /^(?:[a-z][\w+.-]*:\/\/|[a-z]:[\\/]|\\\\|\.{0,2}\/)/i.test(s)) return 'plain';
+  if (/^[\w.@~+-]+(?:[\\/][\w.@~+-]+)+$/.test(s)) return 'plain';
+  if (detectCommand(s) && /\s+\S/.test(s)) return 'shell';
+  if (/^[\w.$-]+$/.test(s) || /^#[\da-f]{3,8}$/i.test(s)) return 'plain';
+  if (/[A-Za-z_$][\w.$]*\s*\(/.test(s) || /(?:=>|(?<![=!<>])=(?!=))/.test(s)
+    || /^(?:const|let|var|function|class|def|return|if|for|SELECT|INSERT|UPDATE)\s+/.test(s)) return 'code';
+  return 'plain';
 }
 
 /**
@@ -296,5 +309,5 @@ function tokenizeRanges(src, bash) {
 }
 
 if (typeof module !== 'undefined' && module.exports !== undefined && typeof window === 'undefined') {
-  module.exports = { tokenizeRanges, detectBadge, detectCommand };
+  module.exports = { tokenizeRanges, detectBadge, detectCommand, detectInlineMode };
 }
