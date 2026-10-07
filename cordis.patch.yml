@@ -1,0 +1,9 @@
+# dsh-code-pill —— 自我挂载（只 insert 本插件一行）
+#
+# 纯浏览器侧贡献：对话界面的 inline code 渲染成 Antigravity 风格 pill
+# （琥珀色文字 + 语法着色 + 文件名语言徽章），并把 shiki 代码块的 token
+# 色换成 VS Code Light+/Dark+ 调色板。主机侧没有路由、配置或服务，
+# 这一行只是让浏览器半侧有归属。
+- insert:
+    - id: code-pill
+      name: dsh-code-pill

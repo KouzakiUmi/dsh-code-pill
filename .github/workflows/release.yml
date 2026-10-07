@@ -1,0 +1,87 @@
+# 版本化发布：只有推 v* tag 才会出 Release。
+# 安装方式（无需 npm registry）：
+#   dsh plugin --profile desktop add https://github.com/KouzakiUmi/dsh-code-pill/releases/download/v<version>/dsh-code-pill.tgz
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Tag must match package.json version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const { version, name } = JSON.parse(readFileSync('package.json', 'utf8'));
+          if (process.env.RELEASE_TAG !== `v${version}`) {
+            throw new Error(`tag ${process.env.RELEASE_TAG} does not match ${name}@${version}`);
+          }
+          console.log(`verified ${name}@${version}`);
+          NODE
+
+      - name: Rebuild client bundle and compare with committed artifact
+        run: |
+          node scripts/build.mjs
+          git diff --exit-code -- lib/client.js
+
+      - name: Manifest and syntax checks
+        run: node scripts/check-manifest.mjs
+
+      - name: Run tests
+        run: |
+          node tests/tokenizer.test.mjs
+          node tests/client-smoke.test.mjs
+
+      - name: Pack and validate release asset
+        run: |
+          npm pack --ignore-scripts --json > pack.json
+          node scripts/prepare-release.mjs
+
+      - name: Upload verified asset
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-package
+          path: dist/dsh-code-pill.tgz
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-package
+          path: dist
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/dsh-code-pill.tgz
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}

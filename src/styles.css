@@ -1,0 +1,99 @@
+/* dsh-code-pill — Antigravity 风格 inline code + VS Code 调色板。
+ *
+ * 两件事：
+ * 1. 代码块（shiki css-variables 主题）的 token 色换成 VS Code
+ *    Light+ / Dark+ 的官方值。DSH 的 shiki 高亮器把所有 token 颜色
+ *    解析到 --shiki-* 自定义属性（theme 包的 token sheets），覆盖
+ *    变量即换主题，不碰渲染器。选择器特异性高于 theme 包的
+ *    `:root` / `body[data-ds-dark-theme]`，保证覆盖生效。
+ * 2. inline code（.dshcp-pill）的 Antigravity 风格：琥珀默认色 +
+ *    文件名语言徽章（::before + data 属性）+ 语法着色
+ *    （CSS Custom Highlight API，九个固定 highlight 名）。
+ *    不修改任何 DOM 结构——React 管理的节点只加 class 与 data 属性。
+ */
+
+/* ---- 代码块：VS Code Light+（默认）/ Dark+（暗色主题）---- */
+html:root {
+  --shiki-foreground: #000000;
+  --shiki-token-constant: #001080;
+  --shiki-token-string: #a31515;
+  --shiki-token-string-expression: #a31515;
+  --shiki-token-comment: #008000;
+  --shiki-token-keyword: #0000ff;
+  --shiki-token-parameter: #001080;
+  --shiki-token-function: #795e26;
+  --shiki-token-punctuation: #000000;
+  --shiki-token-link: #0000ff;
+}
+html body[data-ds-dark-theme] {
+  --shiki-foreground: #d4d4d4;
+  --shiki-token-constant: #9cdcfe;
+  --shiki-token-string: #ce9178;
+  --shiki-token-string-expression: #ce9178;
+  --shiki-token-comment: #6a9955;
+  --shiki-token-keyword: #569cd6;
+  --shiki-token-parameter: #9cdcfe;
+  --shiki-token-function: #dcdcaa;
+  --shiki-token-punctuation: #d4d4d4;
+  --shiki-token-link: #569cd6;
+}
+
+/* ---- inline code：Antigravity 琥珀默认色 + VS Code token 色 ---- */
+html:root {
+  --dshcp-plain: #9a6700;
+  --dshcp-kwc: #af00db;
+  --dshcp-kwd: #0000ff;
+  --dshcp-str: #a31515;
+  --dshcp-com: #008000;
+  --dshcp-num: #098658;
+  --dshcp-fn: #795e26;
+  --dshcp-typ: #267f99;
+  --dshcp-cst: #001080;
+  --dshcp-prm: #001080;
+  --dshcp-badge-bg: rgba(154, 103, 0, 0.12);
+}
+html body[data-ds-dark-theme] {
+  --dshcp-plain: #d4a72c;
+  --dshcp-kwc: #c586c0;
+  --dshcp-kwd: #569cd6;
+  --dshcp-str: #ce9178;
+  --dshcp-com: #6a9955;
+  --dshcp-num: #b5cea8;
+  --dshcp-fn: #dcdcaa;
+  --dshcp-typ: #4ec9b0;
+  --dshcp-cst: #9cdcfe;
+  --dshcp-prm: #9cdcfe;
+  --dshcp-badge-bg: rgba(212, 167, 44, 0.16);
+}
+
+/* pill 外观（底色/边框/圆角/字体沿用 DSH 原有 inline code 样式，只接管文字色） */
+code.dshcp-pill {
+  color: var(--dshcp-plain);
+}
+
+/* 文件名语言徽章：data 属性 + ::before，不插入任何节点 */
+code.dshcp-pill[data-dshcp-badge]::before {
+  content: attr(data-dshcp-badge);
+  flex: 0 0 auto;
+  font-size: 0.72em;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 4px;
+  margin-right: 5px;
+  border-radius: 3px;
+  letter-spacing: 0.02em;
+  background: var(--dshcp-badge-bg);
+  color: var(--dshcp-plain);
+  user-select: none;
+}
+
+/* inline code 语法着色（CSS Custom Highlight API；变量从宿主元素继承） */
+::highlight(dshcp-kwc) { color: var(--dshcp-kwc); }
+::highlight(dshcp-kwd) { color: var(--dshcp-kwd); }
+::highlight(dshcp-str) { color: var(--dshcp-str); }
+::highlight(dshcp-com) { color: var(--dshcp-com); font-style: italic; }
+::highlight(dshcp-num) { color: var(--dshcp-num); }
+::highlight(dshcp-fn) { color: var(--dshcp-fn); }
+::highlight(dshcp-typ) { color: var(--dshcp-typ); }
+::highlight(dshcp-cst) { color: var(--dshcp-cst); }
+::highlight(dshcp-prm) { color: var(--dshcp-prm); }

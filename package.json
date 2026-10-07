@@ -1,0 +1,47 @@
+{
+  "name": "dsh-code-pill",
+  "displayName": "Code Pill / Antigravity 风格代码渲染",
+  "version": "0.1.0",
+  "description": "Antigravity-style inline code rendering in the DSH chat: amber code pills with syntax coloring (VS Code Light+/Dark+ palette), language badges for file names, and VS Code token colors for shiki code blocks.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": "./lib/client.js",
+    "./package.json": "./package.json",
+    "./cordis.patch.yml": "./cordis.patch.yml"
+  },
+  "files": [
+    "lib/",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "dsh-bundle",
+    "code",
+    "syntax-highlighting"
+  ],
+  "license": "MIT",
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/KouzakiUmi/dsh-code-pill.git"
+  },
+  "homepage": "https://github.com/KouzakiUmi/dsh-code-pill#readme",
+  "bugs": {
+    "url": "https://github.com/KouzakiUmi/dsh-code-pill/issues"
+  }
+}
