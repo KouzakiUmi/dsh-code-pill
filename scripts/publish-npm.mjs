@@ -19,7 +19,10 @@ if (existing !== null) {
 } else {
   const r = npm(['publish', asset, '--access', 'public', '--ignore-scripts', '--registry=https://registry.npmjs.org/']);
   process.stdout.write(r.stdout); process.stderr.write(r.stderr);
-  if (r.status !== 0) throw Error('npm publish failed');
+  // 首次包上传可能仍在处理，读端 E404 而写端拒绝同版本。
+  // 仅明确的版本冲突进入可见性核对，认证/权限错误仍立即失败。
+  const duplicate = /Cannot publish over previously (?:published|staged) version|cannot publish over the previously published versions/i.test(r.stderr);
+  if (r.status !== 0 && !duplicate) throw Error('npm publish failed');
   let visible = null;
   for (let i = 0; i < 6; i++) {
     visible = inspect();
