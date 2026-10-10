@@ -2,12 +2,13 @@
  * dsh-code-pill — inline-code tokenizer（纯函数，无依赖）。
  *
  * 把一段 inline code 文本切成带类别的区间，client 侧用 CSS Custom
- * Highlight API 着色；类别对齐 VS Code Light+/Dark+ 调色板（颜色在
- * styles.css 定义，这里只输出类别名）。
+ * Highlight API 着色。这里只输出类别名（kwc|kwd|str|com|num|fn|typ|cst|prm），
+ * 颜色全部在 styles.css 定义——类别与色值的映射关系见 DESIGN.md §3，
+ * 本文件的注释不写具体色值，避免双源漂移。
  *
  * 设计约束：inline code 是单行短文本（DSH 渲染时换行已折叠成空格），
  * 所以不做完整语法解析——一个通用扫描器 + 常用语言 keyword 合集，加
- * 命令行/文件名两个特化场景。宁可少着色，不误判结构。
+ * 命令行/文件名两个特化场景。宁可少着色，不误判结构（DESIGN.md §5）。
  *
  * 加载形态：node 侧供测试导入（文件尾 module.exports）；浏览器侧由
  * scripts/build.mjs 把全文内联进 client factory，函数与表留在 factory
@@ -15,7 +16,7 @@
  */
 
 /**
- * 控制流 keyword —— VS Code Light+ #AF00DB / Dark+ #C586C0。
+ * 控制流 keyword（kwc）。
  * 常用语言（js/ts/py/go/rust/java/c系/sql/bash/ps/php/rb/lua/perl）取并集；
  * SQL 惯用大写，单独一张大小写敏感的声明表（KW_DECL_UPPER）。
  */
@@ -27,7 +28,7 @@ var KW_CONTROL = new Set((
   ' select defer foreach elseif fi esac done '
 ).split(/\s+/));
 
-/** 声明/类型 keyword —— VS Code Light+ #0000FF / Dark+ #569CD6。 */
+/** 声明/类型 keyword（kwd）。 */
 var KW_DECL = new Set((
   ' function func fn def class struct enum interface trait impl type const ' +
   ' let var static get set void async this super extends implements ' +
@@ -149,16 +150,28 @@ function detectCommand(src) {
 }
 
 // 行内文字先判语境，避免把路径、文件名、术语当作表达式拆色。
-function detectInlineMode(src) {
+// badge 可选传入（detectInlineContext 已算过时复用），缺省内部自算。
+function detectInlineMode(src, badge) {
   if (typeof src !== 'string') return 'plain';
   var s = src.trim();
-  if (!s || detectBadge(s) !== null || /^(?:[a-z][\w+.-]*:\/\/|[a-z]:[\\/]|\\\\|\.{0,2}\/)/i.test(s)) return 'plain';
+  if (badge === undefined) badge = detectBadge(s);
+  if (!s || badge !== null || /^(?:[a-z][\w+.-]*:\/\/|[a-z]:[\\/]|\\\\|\.{0,2}\/)/i.test(s)) return 'plain';
   if (/^[\w.@~+-]+(?:[\\/][\w.@~+-]+)+$/.test(s)) return 'plain';
   if (detectCommand(s) && /\s+\S/.test(s)) return 'shell';
   if (/^[\w.$-]+$/.test(s) || /^#[\da-f]{3,8}$/i.test(s)) return 'plain';
   if (/[A-Za-z_$][\w.$]*\s*\(/.test(s) || /(?:=>|(?<![=!<>])=(?!=))/.test(s)
     || /^(?:const|let|var|function|class|def|return|if|for|SELECT|INSERT|UPDATE)\s+/.test(s)) return 'code';
   return 'plain';
+}
+
+/**
+ * tokenizer 对外唯一入口（DESIGN.md §5）：一次计算返回
+ * { mode: 'plain'|'shell'|'code', badge: string|null }。
+ * badge 命中（文件名）时 mode 恒为 'plain'——文件名永远不拆色。
+ */
+function detectInlineContext(src) {
+  var badge = detectBadge(src);
+  return { mode: detectInlineMode(src, badge), badge: badge };
 }
 
 /**
@@ -309,5 +322,5 @@ function tokenizeRanges(src, bash) {
 }
 
 if (typeof module !== 'undefined' && module.exports !== undefined && typeof window === 'undefined') {
-  module.exports = { tokenizeRanges, detectBadge, detectCommand, detectInlineMode };
+  module.exports = { tokenizeRanges, detectBadge, detectCommand, detectInlineMode, detectInlineContext };
 }

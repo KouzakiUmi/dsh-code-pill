@@ -10,7 +10,7 @@ import { createRequire } from 'node:module'
 import assert from 'node:assert/strict'
 
 const require = createRequire(import.meta.url)
-const { tokenizeRanges, detectBadge, detectCommand, detectInlineMode } = require('../src/tokenizer.cjs')
+const { tokenizeRanges, detectBadge, detectCommand, detectInlineMode, detectInlineContext } = require('../src/tokenizer.cjs')
 
 /** 断言 src 的着色类别序列（按出现顺序）等于 expected。 */
 function assertClasses(src, expected, options = {}) {
@@ -175,5 +175,24 @@ test('only explicit snippets and complete command words enable syntax', () => {
   assert.equal(detectInlineMode('print("hi")'), 'code')
   assert.equal(detectCommand('nodeValue = 3'), false)
   assert.equal(detectCommand('git.commit()'), false)
+})
+
+// ---- detectInlineContext：mode 与 badge 一次计算（client 唯一入口）----
+test('inline context: badge forces plain, badge only computed once', () => {
+  assert.deepEqual(detectInlineContext('state.mjs'), { mode: 'plain', badge: 'JS' })
+  assert.deepEqual(detectInlineContext('Dockerfile'), { mode: 'plain', badge: 'DOCKER' })
+  assert.deepEqual(detectInlineContext('src/tokenizer.cjs'), { mode: 'plain', badge: 'JS' })
+})
+
+test('inline context: non-file inputs keep their mode with null badge', () => {
+  assert.deepEqual(detectInlineContext('git status'), { mode: 'shell', badge: null })
+  assert.deepEqual(detectInlineContext('const value = 42'), { mode: 'code', badge: null })
+  assert.deepEqual(detectInlineContext('MutationObserver'), { mode: 'plain', badge: null })
+})
+
+test('inline context: mode always agrees with detectInlineMode', () => {
+  for (const text of ['x = 1', 'README.md', 'pnpm install', 'obj.type', 'https://example.com', 'Set.has', '# comment']) {
+    assert.equal(detectInlineContext(text).mode, detectInlineMode(text), text)
+  }
 })
 console.log(`dsh-code-pill tokenizer: ${passed} tests passed`)

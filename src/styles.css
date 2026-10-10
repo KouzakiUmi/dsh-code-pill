@@ -6,10 +6,16 @@
  *    解析到 --shiki-* 自定义属性（theme 包的 token sheets），覆盖
  *    变量即换主题，不碰渲染器。选择器特异性高于 theme 包的
  *    `:root` / `body[data-ds-dark-theme]`，保证覆盖生效。
- * 2. inline code（.dshcp-pill）的 Antigravity 风格：琥珀默认色 +
+ * 2. inline code（.dshcp-pill）的 Antigravity 风格：琥珀签名色 +
  *    文件名语言徽章（::before + data 属性）+ 语法着色
  *    （CSS Custom Highlight API，九个固定 highlight 名）。
  *    不修改任何 DOM 结构——React 管理的节点只加 class 与 data 属性。
+ *
+ * 色彩系统是约束求解的结果（WCAG 对比度 ≥4.5、角色间明度阶梯、
+ * 色盲安全轴），全部数值经 scripts/color-audit.mjs 审计；设计推理
+ * 与已知边界见 DESIGN.md §4。改任何色值后必须重跑审计并同步文档。
+ * tokenizer 输出 9 类，渲染归并为 6 个独立色（DESIGN.md §3）：
+ * plain / kwc / kwd / str / com / num；fn、typ、cst、prm 继承 plain。
  */
 
 /* ---- 代码块：VS Code Light+（默认）/ Dark+（暗色主题）---- */
@@ -38,14 +44,26 @@ html body[data-ds-dark-theme] {
   --shiki-token-link: #569cd6;
 }
 
-/* ---- inline code：Antigravity 琥珀默认色 + VS Code token 色 ---- */
+/* ---- inline code：6 个独立色 + 4 类继承 plain（DESIGN.md §3）----
+ * 每条注释：L = sRGB 相对亮度；CR = 对页面背景 / 对 pill 有效背景的
+ * WCAG 对比度（color-audit 输出）。 */
 html:root {
+  /* 琥珀签名色：Antigravity 基线，L 0.1476，CR 5.32 / 4.92 */
   --dshcp-plain: #916200;
-  --dshcp-kwc: #596f91;
-  --dshcp-kwd: #596f91;
-  --dshcp-str: #a04b26;
-  --dshcp-com: #737a70;
-  --dshcp-num: var(--dshcp-plain);
+  /* 控制流关键字：紫系，L 0.1165，CR 6.30 / 5.83 */
+  --dshcp-kwc: #9c27b0;
+  /* 声明/类型关键字：深蓝，L 0.0863，CR 7.71 / 7.13 */
+  --dshcp-kwd: #0451a5;
+  /* 字符串：暗红，L 0.0643，CR 9.19 / 8.50（加深自 VS Code #a31515，
+     绿盲模拟下与 plain 的明度差拉到 0.051，见 DESIGN.md §4.4） */
+  --dshcp-str: #8a1e1e;
+  /* 注释：蓝灰 + 斜体，L 0.1570，CR 5.07 / 4.69（放弃绿色传统，
+     绿盲下绿色与琥珀同落黄褐区，见 DESIGN.md §4.4） */
+  --dshcp-com: #64707a;
+  /* 数字：青绿，L 0.1459，CR 5.36 / 4.96（加深自 VS Code #098658，
+     原值对 pill 背景仅 4.26 不达 AA） */
+  --dshcp-num: #0a7a52;
+  /* fn / typ / cst / prm：Antigravity「引用同权」哲学，继承 plain */
   --dshcp-fn: var(--dshcp-plain);
   --dshcp-typ: var(--dshcp-plain);
   --dshcp-cst: var(--dshcp-plain);
@@ -53,12 +71,22 @@ html:root {
   --dshcp-badge-bg: rgba(154, 103, 0, 0.12);
 }
 html body[data-ds-dark-theme] {
+  /* 琥珀签名色，L 0.5460，CR 9.46 / 8.68 */
   --dshcp-plain: #e2bf70;
+  /* 紫，L 0.4212，CR 7.48 / 6.86 */
   --dshcp-kwc: #c5a2cd;
-  --dshcp-kwd: #8eb8dc;
+  /* 蓝，L 0.3653，CR 6.59 / 6.04（加深自 0.1.x #8eb8dc，
+     原值与 kwc 明度仅差 0.032） */
+  --dshcp-kwd: #7aa7d4;
+  /* 橙，L 0.4351，CR 7.70 / 7.06 */
   --dshcp-str: #ceaa83;
+  /* 绿灰 + 斜体，L 0.3462，CR 6.29 / 5.77 */
   --dshcp-com: #8fa67e;
-  --dshcp-num: #b5cea8;
+  /* 中绿，L 0.3394，CR 6.18 / 5.67（放弃 VS Code #b5cea8：
+     原值 L 0.572 与 plain 等明度，绿盲下完全无法区分；
+     本值在绿盲模拟下与 com/kwd 均拉开，见 DESIGN.md §4.4） */
+  --dshcp-num: #6aab87;
+  /* fn / typ / cst / prm 继承 plain（同 Light） */
   --dshcp-fn: var(--dshcp-plain);
   --dshcp-typ: var(--dshcp-plain);
   --dshcp-cst: var(--dshcp-plain);
@@ -66,7 +94,9 @@ html body[data-ds-dark-theme] {
   --dshcp-badge-bg: rgba(212, 167, 44, 0.16);
 }
 
-/* pill 外观（底色/边框/圆角/字体沿用 DSH 原有 inline code 样式，只接管文字色） */
+/* pill 外观：底色/圆角/字号重定义，边框与阴影抹除。
+ * 全部声明带 !important——宿主对 code 有完整的边框/底色/字号规则，
+ * 且宿主样式表加载顺序不可控，这是唯一可靠的对抗手段，不要删减。 */
 html body code.dshcp-pill {
   color: var(--dshcp-plain) !important;
   background: rgba(145, 98, 0, 0.06) !important;
@@ -74,16 +104,17 @@ html body code.dshcp-pill {
   box-shadow: none !important;
   border-radius: 3px !important;
   padding: 0.08em 0.25em !important;
-  font-size: 0.88em;
+  font-size: 0.88em !important;
 }
 html body[data-ds-dark-theme] code.dshcp-pill {
   background: rgba(226, 191, 112, 0.045) !important;
 }
 
-/* 文件名语言徽章：data 属性 + ::before，不插入任何节点 */
+/* 文件名语言徽章：data 属性 + ::before 伪元素，不插入任何节点。
+ * 徽章是 inline 内容，随文字流自然折行；不用 flex 布局——code 是
+ * inline 元素，flex 会破坏行内折行语义（0.1.x 遗留过无效的 flex 声明）。 */
 code.dshcp-pill[data-dshcp-badge]::before {
   content: attr(data-dshcp-badge);
-  flex: 0 0 auto;
   font-size: 0.72em;
   font-weight: 700;
   line-height: 1;
@@ -91,6 +122,7 @@ code.dshcp-pill[data-dshcp-badge]::before {
   margin-right: 5px;
   border-radius: 3px;
   letter-spacing: 0.02em;
+  vertical-align: 0.08em;
   background: var(--dshcp-badge-bg);
   color: var(--dshcp-plain);
   user-select: none;
