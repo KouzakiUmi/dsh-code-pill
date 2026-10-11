@@ -41,6 +41,7 @@ jobs:
           if-no-files-found: error
   npm:
     needs: verify
+    environment: npm
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
