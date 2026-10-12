@@ -8,7 +8,7 @@ const browser = await chromium.launch({ channel: process.env.BROWSER_CHANNEL || 
 try {
   const context = await browser.newContext({ viewport: { width: 900, height: 1100 } })
   const page = await context.newPage()
-  await page.route('https://code-pill.test/**', route => route.fulfill({ contentType: 'text/html', body: '<body style="font:14px system-ui;padding:24px;margin:0"><div id="settings"></div><p id="chat">真实聊天 <code>const count = 42</code> <code>settings.ts</code></p></body>' }))
+  await page.route('https://code-pill.test/**', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: '<body style="font:14px system-ui;padding:24px;margin:0"><div id="settings"></div><p id="chat">真实聊天 <code>const count = 42</code> <code>settings.ts</code></p></body>' }))
   await page.goto('https://code-pill.test/')
   for (const module of ['react', 'react-dom']) {
     await page.addScriptTag({ content: readFileSync(require.resolve(module).replace(/index\.js$/, `umd/${module}.development.js`), 'utf8') })
@@ -61,7 +61,7 @@ try {
   const savedColor = await chat.evaluate(code => getComputedStyle(code).color)
   assert.notEqual(savedColor, original)
   const restoredPage = await page.context().newPage()
-  await restoredPage.route('https://code-pill.test/**', route => route.fulfill({ contentType: 'text/html', body: '<body><code>settings.ts</code></body>' }))
+  await restoredPage.route('https://code-pill.test/**', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: '<body><code>settings.ts</code></body>' }))
   await restoredPage.goto('https://code-pill.test/restore')
   await restoredPage.evaluate(() => { window.__ModuleLoader__ = { load(spec) { spec.factory(() => {}).apply({ effect(cb) { cb() } }) } } })
   await restoredPage.addScriptTag({ content: readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8') })

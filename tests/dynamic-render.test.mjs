@@ -14,9 +14,10 @@ try {
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
   await page.route('http://dsh-code-pill.test/**', route => route.fulfill({
-    contentType: 'text/html', body: '<html><head></head><body><main id="host"><code id="snippet">const count = 42</code><code id="file">src/Dockerfile</code><code id="config">配置/settings.json</code></main><section data-dshcp-preview><code id="preview">const x = 1</code></section></body></html>'
+    contentType: 'text/html; charset=utf-8', body: '<html><head><meta charset="utf-8"></head><body><main id="host"><code id="snippet">const count = 42</code><code id="file">src/Dockerfile</code><code id="config">配置/settings.json</code></main><section data-dshcp-preview><code id="preview">const x = 1</code></section></body></html>'
   }))
   await page.goto('http://dsh-code-pill.test/')
+  assert.equal(await page.locator('#config').textContent(), '配置/settings.json', 'fixture must preserve its UTF-8 path')
   await page.evaluate(() => {
     const nativeRaf = window.requestAnimationFrame.bind(window)
     window.rafCalls = 0
