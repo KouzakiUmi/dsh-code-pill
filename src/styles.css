@@ -1,140 +1,93 @@
-/* dsh-code-pill — Antigravity 风格 inline code + VS Code 调色板。
- *
- * 两件事：
- * 1. 代码块（shiki css-variables 主题）的 token 色换成 VS Code
- *    Light+ / Dark+ 的官方值。DSH 的 shiki 高亮器把所有 token 颜色
- *    解析到 --shiki-* 自定义属性（theme 包的 token sheets），覆盖
- *    变量即换主题，不碰渲染器。选择器特异性高于 theme 包的
- *    `:root` / `body[data-ds-dark-theme]`，保证覆盖生效。
- * 2. inline code（.dshcp-pill）的 Antigravity 风格：琥珀签名色 +
- *    文件名语言徽章（::before + data 属性）+ 语法着色
- *    （CSS Custom Highlight API，九个固定 highlight 名）。
- *    不修改任何 DOM 结构——React 管理的节点只加 class 与 data 属性。
- *
- * 色彩系统是约束求解的结果（WCAG 对比度 ≥4.5、角色间明度阶梯、
- * 色盲安全轴），全部数值经 scripts/color-audit.mjs 审计；设计推理
- * 与已知边界见 DESIGN.md §4。改任何色值后必须重跑审计并同步文档。
- * tokenizer 输出 9 类，渲染归并为 6 个独立色（DESIGN.md §3）：
- * plain / kwc / kwd / str / com / num；fn、typ、cst、prm 继承 plain。
- */
-
-/* ---- 代码块：VS Code Light+（默认）/ Dark+（暗色主题）---- */
-html:root {
-  --shiki-foreground: #000000;
-  --shiki-token-constant: #001080;
-  --shiki-token-string: #a31515;
-  --shiki-token-string-expression: #a31515;
-  --shiki-token-comment: #008000;
-  --shiki-token-keyword: #0000ff;
-  --shiki-token-parameter: #001080;
-  --shiki-token-function: #795e26;
-  --shiki-token-punctuation: #000000;
-  --shiki-token-link: #0000ff;
-}
-html body[data-ds-dark-theme] {
-  --shiki-foreground: #d4d4d4;
-  --shiki-token-constant: #9cdcfe;
-  --shiki-token-string: #ce9178;
-  --shiki-token-string-expression: #ce9178;
-  --shiki-token-comment: #6a9955;
-  --shiki-token-keyword: #569cd6;
-  --shiki-token-parameter: #9cdcfe;
-  --shiki-token-function: #dcdcaa;
-  --shiki-token-punctuation: #d4d4d4;
-  --shiki-token-link: #569cd6;
-}
-
-/* ---- inline code：6 个独立色 + 4 类继承 plain（DESIGN.md §3）----
- * 每条注释：L = sRGB 相对亮度；CR = 对页面背景 / 对 pill 有效背景的
- * WCAG 对比度（color-audit 输出）。 */
-html:root {
-  /* 琥珀签名色：Antigravity 基线，L 0.1476，CR 5.32 / 4.92 */
-  --dshcp-plain: #916200;
-  /* 控制流关键字：紫系，L 0.1165，CR 6.30 / 5.83 */
-  --dshcp-kwc: #9c27b0;
-  /* 声明/类型关键字：深蓝，L 0.0863，CR 7.71 / 7.13 */
-  --dshcp-kwd: #0451a5;
-  /* 字符串：暗红，L 0.0643，CR 9.19 / 8.50（加深自 VS Code #a31515，
-     绿盲模拟下与 plain 的明度差拉到 0.051，见 DESIGN.md §4.4） */
-  --dshcp-str: #8a1e1e;
-  /* 注释：蓝灰 + 斜体，L 0.1570，CR 5.07 / 4.69（放弃绿色传统，
-     绿盲下绿色与琥珀同落黄褐区，见 DESIGN.md §4.4） */
-  --dshcp-com: #64707a;
-  /* 数字：青绿，L 0.1459，CR 5.36 / 4.96（加深自 VS Code #098658，
-     原值对 pill 背景仅 4.26 不达 AA） */
-  --dshcp-num: #0a7a52;
-  /* fn / typ / cst / prm：Antigravity「引用同权」哲学，继承 plain */
-  --dshcp-fn: var(--dshcp-plain);
-  --dshcp-typ: var(--dshcp-plain);
-  --dshcp-cst: var(--dshcp-plain);
-  --dshcp-prm: var(--dshcp-plain);
-  --dshcp-badge-bg: rgba(154, 103, 0, 0.12);
-}
-html body[data-ds-dark-theme] {
-  /* 琥珀签名色，L 0.5460，CR 9.46 / 8.68 */
-  --dshcp-plain: #e2bf70;
-  /* 紫，L 0.4212，CR 7.48 / 6.86 */
-  --dshcp-kwc: #c5a2cd;
-  /* 蓝，L 0.3653，CR 6.59 / 6.04（加深自 0.1.x #8eb8dc，
-     原值与 kwc 明度仅差 0.032） */
-  --dshcp-kwd: #7aa7d4;
-  /* 橙，L 0.4351，CR 7.70 / 7.06 */
-  --dshcp-str: #ceaa83;
-  /* 绿灰 + 斜体，L 0.3462，CR 6.29 / 5.77 */
-  --dshcp-com: #8fa67e;
-  /* 中绿，L 0.3394，CR 6.18 / 5.67（放弃 VS Code #b5cea8：
-     原值 L 0.572 与 plain 等明度，绿盲下完全无法区分；
-     本值在绿盲模拟下与 com/kwd 均拉开，见 DESIGN.md §4.4） */
-  --dshcp-num: #6aab87;
-  /* fn / typ / cst / prm 继承 plain（同 Light） */
-  --dshcp-fn: var(--dshcp-plain);
-  --dshcp-typ: var(--dshcp-plain);
-  --dshcp-cst: var(--dshcp-plain);
-  --dshcp-prm: var(--dshcp-plain);
-  --dshcp-badge-bg: rgba(212, 167, 44, 0.16);
-}
-
-/* pill 外观：底色/圆角/字号重定义，边框与阴影抹除。
- * 全部声明带 !important——宿主对 code 有完整的边框/底色/字号规则，
- * 且宿主样式表加载顺序不可控，这是唯一可靠的对抗手段，不要删减。 */
+/* All palette values are generated from settings-core.cjs, the sole colour source. */
 html body code.dshcp-pill {
   color: var(--dshcp-plain) !important;
-  background: rgba(145, 98, 0, 0.06) !important;
+  background: var(--dshcp-bg) !important;
   border: none !important;
   box-shadow: none !important;
-  border-radius: 3px !important;
-  padding: 0.08em 0.25em !important;
-  font-size: 0.88em !important;
+  border-radius: var(--dshcp-radius) !important;
+  padding: 0.08em var(--dshcp-padding) !important;
+  font-size: var(--dshcp-font-scale) !important;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
-html body[data-ds-dark-theme] code.dshcp-pill {
-  background: rgba(226, 191, 112, 0.045) !important;
-}
-
-/* 文件名语言徽章：data 属性 + ::before 伪元素，不插入任何节点。
- * 徽章是 inline 内容，随文字流自然折行；不用 flex 布局——code 是
- * inline 元素，flex 会破坏行内折行语义（0.1.x 遗留过无效的 flex 声明）。 */
-code.dshcp-pill[data-dshcp-badge]::before {
+code.dshcp-pill[data-dshcp-badge]:not([data-dshcp-icon])::before,
+code.dshcp-pill[data-dshcp-badge][data-dshcp-icon]::after {
   content: attr(data-dshcp-badge);
-  font-size: 0.72em;
-  font-weight: 700;
+  font-size: 0.78em;
+  font-weight: 650;
   line-height: 1;
-  padding: 2px 4px;
-  margin-right: 5px;
+  padding: 1px 3px;
   border-radius: 3px;
   letter-spacing: 0.02em;
-  vertical-align: 0.08em;
+  vertical-align: 0.04em;
   background: var(--dshcp-badge-bg);
-  color: var(--dshcp-plain);
+  color: var(--dshcp-badge-text);
   user-select: none;
 }
-
-/* inline code 语法着色（CSS Custom Highlight API；变量从宿主元素继承） */
+code.dshcp-pill[data-dshcp-badge]:not([data-dshcp-icon])::before { margin-right: 0.4em; }
+code.dshcp-pill[data-dshcp-badge][data-dshcp-icon]::after { margin-left: 0.4em; }
+code.dshcp-pill[data-dshcp-icon]::before {
+  content: '';
+  display: inline-block;
+  width: 0.9em;
+  height: 0.95em;
+  margin-right: 0.25em;
+  vertical-align: -0.12em;
+  background: currentColor;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='black' stroke-width='1.4' stroke-linejoin='round' d='M3 1.5h6l4 4v9H3z M9 1.5v4h4 M5.5 8h5 M5.5 10.5h5'/%3E%3C/svg%3E") center / contain no-repeat;
+}
 ::highlight(dshcp-kwc) { color: var(--dshcp-kwc); }
 ::highlight(dshcp-kwd) { color: var(--dshcp-kwd); }
 ::highlight(dshcp-str) { color: var(--dshcp-str); }
-::highlight(dshcp-com) { color: var(--dshcp-com); font-style: italic; }
+::highlight(dshcp-com) { color: var(--dshcp-com); }
 ::highlight(dshcp-num) { color: var(--dshcp-num); }
 ::highlight(dshcp-fn) { color: var(--dshcp-fn); }
 ::highlight(dshcp-typ) { color: var(--dshcp-typ); }
 ::highlight(dshcp-cst) { color: var(--dshcp-cst); }
 ::highlight(dshcp-prm) { color: var(--dshcp-prm); }
+
+/* Settings use host design tokens; no remote assets or bundled fonts. */
+.dshcp-settings { color: var(--dsw-alias-label-primary-foreground, inherit); max-width: 820px; padding: 8px 4px 20px; }
+.dshcp-settings * { box-sizing: border-box; }
+.dshcp-settings-header, .dshcp-section-heading, .dshcp-control-row, .dshcp-settings-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.dshcp-settings h2 { margin: 0; font-size: 22px; font-weight: 650; letter-spacing: -.02em; }
+.dshcp-settings h3 { margin: 0 0 12px; font-size: 14px; font-weight: 650; }
+.dshcp-settings-header p { margin: 6px 0 18px; }
+.dshcp-hint, .dshcp-settings-header p, .dshcp-control-row small { color: var(--dsw-alias-label-secondary-foreground, #757575); font-size: 12px; line-height: 1.6; }
+.dshcp-local-tag { font-size: 10px; padding: 3px 7px; border-radius: 6px; color: var(--dsw-alias-label-secondary-foreground, #757575); background: var(--dsw-alias-bg-layer-1, #8881); white-space: nowrap; }
+.dshcp-panel { padding: 16px; border: 1px solid var(--dsw-alias-border-l4, #8883); border-radius: 12px; margin-bottom: 14px; }
+.dshcp-panel > .dshcp-hint { margin: 0 0 12px; }
+.dshcp-preset-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(135px,1fr)); gap: 8px; }
+.dshcp-preset { padding: 12px; border: 1px solid var(--dsw-alias-border-l4, #8884); border-radius: 8px; text-align: left; color: inherit; background: var(--dsw-alias-bg-layer-1, transparent); cursor: pointer; }
+.dshcp-preset[aria-pressed='true'] { border-color: var(--dsw-alias-brand-primary, #916200); box-shadow: inset 0 0 0 1px var(--dsw-alias-brand-primary, #916200); }
+.dshcp-preset:hover { background: var(--dsw-alias-bg-layer-2, #8881); }
+.dshcp-preset strong { display: block; font-size: 12px; margin: 9px 0 4px; }
+.dshcp-preset small { display: block; font-size: 10px; line-height: 1.5; color: var(--dsw-alias-label-secondary-foreground, #757575); }
+.dshcp-swatches { display: flex; gap: 5px; }
+.dshcp-swatches i { width: 14px; height: 14px; border-radius: 50%; }
+.dshcp-theme-toggle, .dshcp-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.dshcp-section-heading h3 { margin-bottom: 0; }
+.dshcp-section-heading { margin-bottom: 12px; }
+.dshcp-preview { border: 1px solid #8883; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; font-size: 14px; line-height: 1.8; overflow-wrap: anywhere; }
+.dshcp-preview-caption { font-size: 10px; opacity: .7; margin-bottom: 10px; }
+.dshcp-preview p { margin: 8px 0; }
+.dshcp-preview-block { background: #8881; padding: 10px; border-radius: 6px; font-size: 12px; white-space: pre-wrap; margin: 12px 0 0; }
+.dshcp-color-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap: 12px; }
+.dshcp-color-field > span { display: block; font-size: 11px; margin-bottom: 5px; }
+.dshcp-color-field > div { display: flex; align-items: center; gap: 7px; }
+.dshcp-color-field input[type='color'] { appearance: none; border: 1px solid var(--dsw-alias-border-l4, #8884); border-radius: 6px; background: transparent; padding: 2px; width: 30px; height: 30px; flex-shrink: 0; cursor: pointer; }
+.dshcp-color-field input:not([type='color']) { min-width: 0; width: 100%; font-size: 12px; }
+.dshcp-warning { color: var(--dsw-alias-state-warning-primary, #a85f00); font-size: 12px; line-height: 1.7; margin-bottom: 0; }
+.dshcp-control-row { padding: 10px 0; font-size: 12px; }
+.dshcp-control-row small { display: block; }
+.dshcp-settings select { color: inherit; background: var(--dsw-alias-bg-layer-1, transparent); border: 1px solid var(--dsw-alias-border-l4, #8884); padding: 6px 8px; border-radius: 6px; font: inherit; max-width: 65%; }
+.dshcp-slider-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px 20px; padding: 14px 0; }
+.dshcp-slider > span { display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 6px; }
+.dshcp-slider output { color: var(--dsw-alias-label-secondary-foreground, #757575); }
+.dshcp-slider input { width: 100%; accent-color: var(--dsw-alias-brand-primary, #916200); }
+.dshcp-settings summary { cursor: pointer; font-size: 12px; font-weight: 600; }
+.dshcp-settings textarea { width: 100%; min-height: 140px; resize: vertical; color: inherit; background: var(--dsw-alias-bg-layer-1, transparent); border: 1px solid var(--dsw-alias-border-l4, #8884); border-radius: 6px; padding: 10px; margin: 10px 0; font: inherit; font-size: 12px; }
+.dshcp-settings-footer { position: sticky; bottom: 0; padding: 12px 0; background: var(--dsw-alias-bg-layer-0, Canvas); border-top: 1px solid var(--dsw-alias-border-l4, #8883); flex-wrap: wrap; }
+.dshcp-settings :focus-visible { outline: 2px solid var(--dsw-alias-brand-primary, #916200); outline-offset: 3px; }
+@media (max-width: 480px) { .dshcp-panel { padding: 12px; } .dshcp-slider-grid { grid-template-columns: 1fr; } .dshcp-settings-header { align-items: flex-start; } }
+@media (forced-colors: active) { code.dshcp-pill { outline: 1px solid CanvasText; } .dshcp-preset[aria-pressed='true'] { outline: 2px solid Highlight; } }

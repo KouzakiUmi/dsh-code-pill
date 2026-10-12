@@ -13,6 +13,8 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)))
 
 const tokenizer = readFileSync(join(root, 'src/tokenizer.cjs'), 'utf8')
 const css = readFileSync(join(root, 'src/styles.css'), 'utf8')
+const settingsCore = readFileSync(join(root, 'src/settings-core.cjs'), 'utf8')
+const settingsUI = readFileSync(join(root, 'src/settings-ui.js'), 'utf8')
 const template = readFileSync(join(root, 'src/client-main.js'), 'utf8')
 
 // CSS 内联成模板字符串字面量：转义反斜杠、反引号与 ${。
@@ -24,9 +26,11 @@ const cssLiteral = '`' + css
 // replace 用回调形式，避免 tokenizer 源码里的 $ 序列被当作替换模式。
 const out = template
   .replace('/* __TOKENIZER__ */', () => tokenizer)
+  .replace('/* __SETTINGS_CORE__ */', () => settingsCore)
+  .replace('/* __SETTINGS_UI__ */', () => settingsUI)
   .replace('/* __CSS__ */', () => 'var CSS_TEXT = ' + cssLiteral + ';')
 
-if (out.includes('__TOKENIZER__') || out.includes('__CSS__')) {
+if (/__(?:TOKENIZER|SETTINGS_CORE|SETTINGS_UI|CSS)__/.test(out)) {
   throw new Error('placeholder replacement failed')
 }
 

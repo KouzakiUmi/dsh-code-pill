@@ -1,88 +1,115 @@
-# dsh-code-pill
+<p align="center">
+  <img src="https://raw.githubusercontent.com/KouzakiUmi/dsh-code-pill/main/assets/banner.png" width="100%" alt="Code Pill：代码更清楚，阅读更连贯。琥珀色行内代码、文件徽章与五套深浅配对预设。">
+</p>
 
-DSH 对话界面的 Antigravity 风格代码渲染插件，纯浏览器侧，无外部服务、配置或运行时依赖。设计思路与色彩数值推导见 [DESIGN.md](DESIGN.md)。
+<div align="center">
 
-## 效果与边界
+# Code Pill
 
-- 行内标识符、文件名、路径、URL 使用统一琥珀签名色，背景轻薄，无边框。
-- 明确的表达式、函数调用、声明和命令启用语法着色：关键字、字符串、数字、注释各有独立色；函数调用、类型、常量、属性按「引用同权」哲学保持金色（DESIGN.md §3）。
-- 文件名自动带语言徽章（`state.mjs` → `JS`、`Dockerfile` → `DOCKER`），只认无空白、已知扩展名或特殊文件名的短字符串，不给普通标识符误贴标签。
-- 文件路径不会被拆成属性或关键字着色。不处理链接/按钮中的代码。
-- 色彩系统经 WCAG 审计：全部角色对背景对比度 ≥ 4.5:1，绿色盲模拟下无混淆对（`node scripts/color-audit.mjs` 可复验）；Light/Dark 渲染同一套 6 色语义。
-- shiki 代码块使用 VS Code Light+/Dark+ 配色，跟随 DSH 亮暗主题。
-- 这是启发式行内 tokenizer，不是完整语言解析器。需要精确语言识别时应使用带语言的代码块。
+**让代码融入阅读，而不是打断阅读。**
 
-已验证 DSH Core `0.2.1-alpha.1`、Cordis `4.0.5-alpha.1`，桌面 profile 和 Chromium 浏览器渲染。其他 Core 版本未验证；桌面壳版本不等于 Core 版本。浏览器不支持 CSS Custom Highlight API 时仍显示金色文字与徽章，但不做 token 染色；forced-colors（高对比度）模式下全部颜色由系统接管。
+DeepSeek Harness 的行内代码外观插件。轻背景、语法色、文件标记，按你的阅读习惯调整。
 
-## 权限与兼容范围
+[![CI](https://github.com/KouzakiUmi/dsh-code-pill/actions/workflows/ci.yml/badge.svg)](https://github.com/KouzakiUmi/dsh-code-pill/actions/workflows/ci.yml)
+[![npm](https://img.shields.io/npm/v/dsh-code-pill?color=916200&label=npm)](https://www.npmjs.com/package/dsh-code-pill)
+[![MIT](https://img.shields.io/badge/license-MIT-68786a)](LICENSE)
 
-- **文件系统**：无访问。插件只读写 DOM 属性与 CSS 注册表，不触碰文件。
-- **网络**：无访问。无 fetch/XHR/WebSocket，无外部服务。
-- **命令执行**：无。无生命周期脚本（preinstall/install/postinstall/prepare 均不存在）。
-- **凭据**：无访问。不读取任何环境变量、profile 或存储。
-- **兼容**：DSH Core `0.2.1-alpha.1` 已验证（desktop profile）；Node.js `>=18`（host 侧为空操作）；Client 平台 web（Chromium 系，Highlight API 缺失时自动降级）。其余版本未验证，按"未知"对待。
+[开始使用](#开始使用) · [挑选色板](#五套色板两种主题) · [设置指南](docs/settings.md) · [开发文档](docs/development.md)
 
-## 安装和更新
+</div>
 
-npm 包名：`dsh-code-pill`。桌面插件页可填包名；命令行使用目标桌面安装自带 CLI，以下路径仅是 DSH NEXT 的示例，请按本机安装调整。
+> [!NOTE]
+> **本页展示 main 的新增功能，目前尚未正式发布。** npm 的已发布版本与 main 不等同；设置页、五套预设和自定义选项见 [Unreleased 更新记录](CHANGELOG.md)。推送 main 只构建验证包，不会自动发布 npm。
 
-首次安装：
+## 不必把对话变成编辑器
 
-```powershell
-node "C:\Program Files\DSH NEXT\resources\app\lib\desktop-cli.js" plugin --profile desktop add dsh-code-pill
-```
+短标识符需要的是清楚的引用感，文件名需要的是定位线索，真正的表达式才需要语法颜色。Code Pill 把这三件事分开：
 
-已有安装更新：
-
-```powershell
-node "C:\Program Files\DSH NEXT\resources\app\lib\desktop-cli.js" plugin --profile desktop update dsh-code-pill@latest
-```
-
-也可使用 [GitHub Releases](https://github.com/KouzakiUmi/dsh-code-pill/releases) 中已构建的 `dsh-code-pill.tgz`：首次 `add <tarball URL>`，更新 `update dsh-code-pill@<tarball URL>`。源码压缩包不能代替该安装资产。
-
-更新已安装包后重新打开 DSH，加载新的 JS 代际。不要直接修改 profile 的 node_modules；本地开发先构建、打包，再通过同一 CLI 更新 `dsh-code-pill@file:<tarball 的绝对路径>`。无配置字段、环境变量或持久化数据。
-
-## 开发与验证
-
-Node 24，使用提交的 npm lockfile：
-
-```sh
-npm ci --ignore-scripts
-node scripts/build.mjs
-node scripts/check-manifest.mjs
-node tests/tokenizer.test.mjs
-node tests/client-smoke.test.mjs
-node tests/browser-render.test.mjs
-node scripts/color-audit.mjs
-npm pack --ignore-scripts --json > pack.json
-node scripts/prepare-release.mjs
-```
-
-浏览器测试默认使用已安装的 Chrome；可用 `BROWSER_CHANNEL=msedge` 指定 Edge。CI 在 Linux 使用 Chrome，验证实际颜色、Highlight ranges、徽章、主题切换和卸载清理，并生成 `dist/inline-preview.png`。`scripts/color-audit.mjs` 审计色板的 WCAG 对比度、角色间明度差与绿色盲模拟混淆对（DESIGN.md §4 的数值以它为准）。真实 Cordis 生命周期测试可运行 `node tests/client-smoke.test.mjs <目标安装的 cordis/lib/index.js>`。
-
-源码位于 `src/tokenizer.cjs`、`src/styles.css`、`src/client-main.js`；`scripts/build.mjs` 生成 `lib/client.js`。修改源码后重建产物，不直接编辑生成文件。MutationObserver 和 requestAnimationFrame 批处理，CSS Custom Highlight API 着色，不替换 React 管理的子节点；九个语法类别各持有一个持久 Highlight 对象，每个 code 变化只做差量 add/delete（不做全量 rebuild）；插件卸载时清理样式、observer、highlights 与属性。
-
-## CI 和发布
-
-`ci.yml` 在 main 推送和 PR 时运行构建、产物漂移检查、manifest、行为与浏览器测试、打包验证。PR 不发布。
-
-`release.yml` 在推送 `v<package.json.version>` 标签时发布；也支持选择同一标签进行手动恢复。发布经过验证的同一个 tarball 到 GitHub Release 和 npm。npm job 使用 GitHub-hosted runner、Node 24、npm >=11.5.1 与 `id-token: write`，不需要 NPM_TOKEN。已存在的版本只在 integrity 与本次资产一致时跳过，查询失败会停止。
-
-首次创建 npm 包需要维护者人工认证。包存在后，在 npm 设置 Trusted Publisher：
-
-| 字段 | 值 |
+| 阅读动作 | Code Pill 如何处理 |
 | --- | --- |
-| Provider | GitHub Actions |
-| Organization/user | KouzakiUmi |
-| Repository | dsh-code-pill |
-| Workflow filename | release.yml |
-| Environment | 留空（job 没有 environment） |
-| Allowed action | 允许直接 npm publish |
+| 扫过一段回复 | 轻薄底色、无边框胶囊，让代码区别于正文，又不过度抢眼 |
+| 找到某个文件 | 语言缩写或单色小图标；不为普通表达式贴文件标记 |
+| 细读一段代码 | 关键字、字符串、数字与注释分色；路径和术语保持统一颜色 |
+| 调整阅读习惯 | 深浅独立色板、字号和间距；先预览，满意后再保存 |
 
-也可用 npm >=11.15.0 的 `npm trust github` 配置，需维护者身份和 2FA。参见 [npm 官方 Trusted Publishing 文档](https://docs.npmjs.com/trusted-publishers/)。GitHub Release、npm 发布、DSH 市场上架和本机插件更新是分别进行的操作。
+## 五套色板，两种主题
 
-发布前更新版本和 CHANGELOG，完成验证后提交、创建匹配 tag 并推送。不要移动已发布标签。失败时查看 Actions；修复工作流后需新提交，旧 run 重跑不会自动使用新版工作流。npm 成功后查询具体版本、latest 和 integrity，允许短暂 registry 传播延迟。
+不是给同一张图加滤镜。每套都有独立的浅色与深色配色；预设只是起点，每个颜色都能继续调整。
 
-## 许可证
+<img src="https://raw.githubusercontent.com/KouzakiUmi/dsh-code-pill/main/assets/presets.png" width="100%" alt="五套预设对比：琥珀经典、柔和阅读、冷调清晰、编辑器经典、高对比；每套同时展示浅色和深色。">
 
-MIT，见 LICENSE。
+<sub>展示图由当前客户端 bundle 在隔离 Chromium 页面中真实渲染，并读取源码中的预设；不是生产 DSH 整页截图。</sub>
+
+## 文件标记，想留多少就留多少
+
+关闭、语言文字、小图标、图标＋文字。图标继承当前文字颜色，不加载外部资源；文件标记不会扩散到普通表达式。
+
+<img src="https://raw.githubusercontent.com/KouzakiUmi/dsh-code-pill/main/assets/markers.png" width="100%" alt="四种文件标记模式：关闭、语言文字、小图标、图标加文字。普通代码表达式不加文件图标。">
+
+## 调到舒服，再应用
+
+在 **设置 → Code Pill** 中编辑：
+
+- **颜色**：分别调整深浅主题的六个文字角色、胶囊底色和徽章颜色。
+- **排版**：字号比例、圆角、水平内边距、底色强度。
+- **显示**：行内语法着色、文件标记，以及保留宿主／使用当前色板的代码块配色。
+- **管理**：保存并应用、取消草稿、恢复默认、JSON 导入导出。
+
+**草稿不改变聊天。** 设置仅保存到当前浏览器、当前网站地址，不上传、不跨设备自动同步；自定义低对比度配色会提醒，但不禁止保存。
+
+详细操作、默认值和存储范围见 [设置指南](docs/settings.md)。
+
+## 开始使用
+
+### 安装已发布版本
+
+在 DSH 插件页填写 `dsh-code-pill`，或使用实际 Profile 名称执行：
+
+```powershell
+dsh plugin --profile <profile> add dsh-code-pill
+```
+
+更新已安装版本：
+
+```powershell
+dsh plugin --profile <profile> update dsh-code-pill@latest
+```
+
+按部署方式重新打开／重载 DSH，让新客户端模块被加载。**这些命令安装 npm 已发布包，不保证包含本页的 Unreleased 功能。**
+
+### 试用当前 main
+
+在 [CI 构建记录](https://github.com/KouzakiUmi/dsh-code-pill/actions/workflows/ci.yml) 中选择成功的 main 构建，下载 `verified-package` artifact 并解压。使用其中的 `dsh-code-pill.tgz`，不要把 GitHub 源码 ZIP 当作插件包。
+
+首次安装与已有插件更新分别使用：
+
+```powershell
+dsh plugin --profile <profile> add <tarball 的绝对路径>
+dsh plugin --profile <profile> update dsh-code-pill@file:<tarball 的绝对路径>
+```
+
+路径含空格时整体加引号。构建包仍可能保留当前版本字段；它不等于对应版本已经正式发布。
+
+## 克制，也包括权限
+
+**不接外部服务，不读账户凭据，不访问主机文件系统，不替换 React 管理的消息子节点。** 插件只装饰合格的行内代码、注册 CSS Highlight，并读写自己的浏览器外观配置。
+
+默认保留宿主代码块配色。内置预设按白色与 `#1e1e1e` 背景、合成胶囊背景和徽章背景审计，文字对比度达到 4.5:1；这不是对所有宿主主题和自定义颜色的保证。
+
+真实 Chrome 渲染、React 设置交互、Cordis 加载与卸载已有测试证据；**新增设置页尚未在当前生产 DSH 完成现场安装验收**。宿主需提供设置 slot、React 和 UI primitives；能力不足时保留聊天渲染、按能力降级。完整范围见 [兼容性与权限边界](docs/compatibility.md)。
+
+## 进一步了解
+
+| 文档 | 内容 |
+| --- | --- |
+| [设置指南](docs/settings.md) | 预设、颜色、开关、导入导出与常见问题 |
+| [设计说明](DESIGN.md) | 零子节点侵入、增量 Highlight、色板与草稿隔离 |
+| [开发与验证](docs/development.md) | 模块结构、测试、构建、打包与发布边界 |
+| [兼容性](docs/compatibility.md) | 实测证据、降级、浏览器存储与未覆盖场景 |
+| [更新记录](CHANGELOG.md) | 已发布版本与 Unreleased 改动 |
+
+首页插图可通过 `node scripts/render-doc-assets.mjs` 从当前 bundle 重建，详见 [展示资源说明](assets/README.md)。
+
+---
+
+[MIT License](LICENSE) · [报告问题](https://github.com/KouzakiUmi/dsh-code-pill/issues) · [GitHub Releases](https://github.com/KouzakiUmi/dsh-code-pill/releases)

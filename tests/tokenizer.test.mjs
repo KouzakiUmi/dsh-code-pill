@@ -48,6 +48,15 @@ test('property after dot gets prm', () => {
   assertClasses('obj.type', ['prm'])
 })
 
+test('keyword-named properties take precedence over control flow', () => {
+  assertClasses('obj.return(1)', ['fn', 'num'])
+  assertClasses('obj.if(1)', ['fn', 'num'])
+  assertClasses('obj.return', ['prm'])
+  assertClasses('obj.SELECT', ['prm'])
+  assertClasses('obj?.return(1)', ['fn', 'num'])
+  assertClasses('return fn(1)', ['kwc', 'fn', 'num'])
+})
+
 test('assignment with string', () => {
   assertClasses('st.mode = "ready"', ['prm', 'str'])
 })
@@ -132,6 +141,16 @@ test('bash flags and vars', () => {
   assertClasses('echo $HOME/bin', ['fn', 'cst'], { bash: true })
 })
 
+test('shell flags include the complete dash prefix', () => {
+  const src = 'git commit --amend -m --no-verify'
+  assert.deepEqual(tokenizeRanges(src, true), [
+    { start: 11, end: 18, cls: 'prm' },
+    { start: 19, end: 21, cls: 'prm' },
+    { start: 22, end: 33, cls: 'prm' }
+  ])
+  assertClasses('value--amend', [], { bash: true })
+})
+
 test('non-bash --flag stays plain', () => {
   assertClasses('a --flag', [])
 })
@@ -147,12 +166,27 @@ test('file badges', () => {
   assert.equal(detectBadge('foo.d.ts'), 'TS')
 })
 
+test('special basenames and Windows/Chinese paths', () => {
+  for (const [path, badge] of [
+    ['src/Dockerfile', 'DOCKER'], ['../build/Makefile', 'MAKE'],
+    ['配置/.env.local', 'ENV'], ['src/CMakeLists.txt', 'CMAKE'],
+    ['D:\\项目\\源码\\状态.ts', 'TS'], ['源码/组件.tsx', 'TSX'],
+    ['\\\\服务器\\共享\\package.json', 'JSON'], ['/etc/config.yaml', 'YAML']
+  ]) {
+    assert.equal(detectBadge(path), badge, path)
+    assert.deepEqual(detectInlineContext(path), { mode: 'plain', badge }, path)
+  }
+})
+
 test('badge rejects non-files', () => {
   assert.equal(detectBadge('st.mode'), null)
   assert.equal(detectBadge('arr.includes(idx)'), null)
   assert.equal(detectBadge('v1.2.3'), null)
   assert.equal(detectBadge(''), null)
   assert.equal(detectBadge('some sentence with spaces.mjs'), null)
+  for (const expression of ['obj.return(1)', 'a+b.js', 'x=config.json', 'https://example.com/a.js', 'foo?.ts', 'obj["file.js"]']) {
+    assert.equal(detectBadge(expression), null, expression)
+  }
 })
 
 // ---- 区间与文本一致性 ----

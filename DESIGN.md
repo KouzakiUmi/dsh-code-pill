@@ -1,252 +1,117 @@
 # dsh-code-pill 设计文档
 
-本文档记录插件的设计思路与理念：它为什么长这样、每个决策放弃了什么。
-改代码之前先读这里；改动若推翻这里的决策，连同文档一起更新。
+## 1. 产品定位与本次扩展
 
-> 色彩数值由 `node scripts/color-audit.mjs` 审计生成，本文表格与其输出保持一致。
+Code Pill 用于 DSH 对话中的行内代码：薄背景、克制的语法色、可选文件标记。
+设置页注册到宿主 `settings.section`，不建立独立服务器，不向消息插入交互按钮。
+本次增加五套深浅配对预设、自定义颜色、文件标记、排版参数、代码块颜色与配置导入导出。
 
----
+## 2. 核心约束
 
-## 1. 产品定位
+1. **不修改消息子节点。** React 管理的 code 只加 class/data 属性；语法色用 CSS Custom Highlight，文件标记用伪元素。
+2. **宁可少染，不误伤术语。** 标识符、路径、URL、文件名默认 plain，只有明确表达式和命令启用启发式扫描。
+3. **增量更新。** 九个持久 Highlight 集合按 code 增删 Range，不在流式更新时重建全文。
+4. **草稿隔离。** 设置页面由 React 渲染独立预览，使用 `data-dshcp-preview` 排除聊天渲染管线。修改草稿不影响真实聊天。
+5. **显式保存。** 只有“保存并应用”写浏览器存储、更新渲染；取消恢复已保存配置，关闭页面丢弃草稿。
+6. **单一色源。** `src/settings-core.cjs` 定义色板；CSS 生成器、设置预览和审计读取同一数据。`src/styles.css` 只定义几何、伪元素和界面布局。
+7. **不覆盖宿主安装。** 开发产物只写工作区，不修改 DSH 安装目录、Profile 或生产插件。
 
-把 DSH 对话里的 inline code 渲染成 Antigravity 风格的"代码 pill"：
-琥珀色签名 + 克制的语法着色 + 文件类型徽章，并把 shiki 代码块配色换成
-VS Code Light+/Dark+。
+## 3. 语义与文件标记
 
-对话场景的阅读分三个层次，渲染系统按层次各给一种信号：
+解析类别为 kwc/kwd/str/com/num/fn/typ/cst/prm；默认文字 plain 加前五类构成六个独立颜色。
+fn/typ/cst/prm 并入 plain：行内表达式不是完整编辑器，不必把所有角色拆色。
+不承诺完整语言解析；精确高亮使用带语言的宿主代码块。
 
-| 层次 | 读者行为 | 视觉信号 | 表达的含义 |
-| --- | --- | --- | --- |
-| 扫读 | 视线掠过整段回复 | pill 容器（琥珀文字 + 轻薄底色） | "这是代码 / 可引用的实体" |
-| 定位 | 找某个文件、某条命令 | 语言徽章（`::before`，不插入节点） | "这是一个 JS / JSON / DOCKER 文件" |
-| 细读 | 停下来看这段代码 | token 语法色（CSS Custom Highlight） | "这个 token 是什么语法角色" |
+文件标记只用于命中的文件名，不用于普通表达式：
 
-三层信号互不依赖：不支持 Highlight API 的浏览器仍有前两层的降级形态
-（见 §6.1），徽章可以独立开关而不影响语法着色。
-
-## 2. 设计原则
-
-按优先级排序，冲突时靠前的赢。
-
-1. **零 DOM 侵入。** 宿主是 React 管理的对话流，任何子节点增删都可能在
-   流式更新时被 React 覆盖或触发 reconciliation 异常。插件只允许给
-   `code` 元素加 class 与 data 属性；着色走 CSS Custom Highlight API
-   （不接触 DOM），徽章走 `::before` 伪元素（不产生真实节点）。
-2. **克制优于丰富。** inline code 大多是标识符、路径、术语，不是代码。
-   模式检测宁可判 plain 也不多染色（§5）；渲染层把 9 个解析类别合并成
-   6 种可见色（§3）。一个什么都在发光的界面等于什么都没有强调。
-3. **可分辨性优先于美观。** 每个独立色都通过双重检验：对背景 WCAG
-   对比度 ≥ 4.5:1；与相邻角色之间至少满足「明度差 ≥ 0.05」或「在
-   蓝-黄轴上分居两侧」（红绿色盲保留蓝黄辨别，这是色盲安全的区分轴）。
-   色相是第二信号，明度是第一信号。
-4. **两个主题，一套语义。** Light 与 Dark 渲染完全相同的 6 个角色，
-   不允许出现一个主题能表达、另一个主题丢失的类别（0.1.x 的 Light
-   主题只有 4 种可见色，tokenizer 解析出的 9 类信息被静默丢弃——
-   解析花了成本，视觉没有反馈，是最差的状态）。
-5. **熟悉感是免费的可用性。** 色值优先取 VS Code Light+/Dark+ 原色或
-   其柔化版；只有与琥珀签名色冲突时才让步（§4.4 记录了每一处让步）。
-6. **单一事实源。** token 类别只由 tokenizer 定义，颜色只由 styles.css
-   定义。tokenizer 的注释不写具体色值（0.1.x 曾出现注释写 `#AF00DB`
-   而实现是 `#596f91` 的漂移）；改色板不需要碰 tokenizer，改类别不需要
-   碰 CSS。`scripts/color-audit.mjs` 是色板数值的审计入口。
-
-## 3. 类别体系：9 类解析 → 6 色渲染
-
-tokenizer 输出 9 类区间，渲染层按下表归并：
-
-| 解析类别 | 含义 | 渲染角色 | 理由 |
-| --- | --- | --- | --- |
-| `kwc` | 控制流关键字（if/for/return…） | **独立色（紫系）** | 控制流是细读代码时最有价值的结构信号 |
-| `kwd` | 声明/类型关键字（const/def/class…） | **独立色（蓝系）** | 与控制流分居两个色相，结构信息二分 |
-| `str` | 字符串字面量 | **独立色（红/橙系）** | 「值」与「结构」的区分是代码阅读的基本动作 |
-| `com` | 注释 | **独立色（灰/绿系）+ 斜体** | 注释需要被"看轻"而不是"看清" |
-| `num` | 数字字面量 | **独立色（青绿系）** | 数字是代码里最高频的值信号 |
-| `fn` | 函数调用 | 并入 plain | Antigravity 哲学：inline code 的核心语义是「引用」，调用、类型、常量、属性都是引用的变体，视觉同权 |
-| `typ` | PascalCase 类型名 | 并入 plain | 同上 |
-| `cst` | ALL_CAPS 常量 | 并入 plain | 同上 |
-| `prm` | `.` 后属性 / shell flag | 并入 plain | 同上 |
-
-为什么是 6 色而不是更多：在白底/深底上，满足 4.5:1 对比度、且两两之间
-（含色盲模拟后）可分辨的颜色，实践上限就在 5–7 个。每多一个独立色，
-色板内所有颜色的可分辨性余量都被压缩。9 类解析信息保留在 tokenizer
-输出里，未来若要开放配置（例如"严格模式"给 fn/typ 独立色），渲染层
-只需加变量，不用动解析器。
-
-## 4. 色彩系统
-
-### 4.1 方法
-
-把选色当作约束求解，而不是调色板美学：
-
-1. 硬约束：每色对页面背景与 pill 有效背景的对比度都 ≥ 4.5:1
-   （WCAG AA 正文）。
-2. 软约束：同主题内任意两角色，至少满足以下一条——
-   (a) 明度差 |ΔL| ≥ 0.05；
-   (b) 在蓝-黄轴上分居两侧（deuteranopia 模拟后仍可分辨）。
-3. 偏好：先取 VS Code 原色；冲突时向"柔化、降饱和"方向微调，
-   保持 Antigravity 的整体观感。
-
-约束 1 与「绿盲混淆对为零」由 `scripts/color-audit.mjs` 机器断言——
-任一失败以非零退出码结束，CI 直接拦截。约束 2 的蓝-黄轴分析是设计
-论证；审计中的混淆对检测（模拟后 ΔL 与色距的双门槛）是它的可执行
-近似：不能保证"分得开"，但能保证"没撞在一起"。
-
-### 4.2 Light 色板
-
-页面背景按 `#ffffff` 审计（pill 底色为 `#916200` @ 6% alpha，有效背景
-`#f8f6f0`，数值见 color-audit 输出）。
-
-| 角色 | 色值 | 相对亮度 L | 对比度（页面 / pill） | 取色依据 | 与 plain 的分辨机制 |
-| --- | --- | --- | --- | --- | --- |
-| plain | `#916200` | 0.1476 | 5.32 / 4.92 | Antigravity 琥珀签名色（0.1.x 沿用） | 基线 |
-| kwd | `#0451a5` | 0.0863 | 7.71 / 7.13 | VS Code 深蓝，降饱和版 | 蓝-黄轴 + ΔL 0.061 |
-| kwc | `#9c27b0` | 0.1165 | 6.30 / 5.83 | 紫系（VS Code `#AF00DB` 的加深版，原色 L=0.143 与 plain 几乎等明度） | 蓝-黄轴 |
-| str | `#8a1e1e` | 0.0643 | 9.19 / 8.50 | VS Code `#a31515` 加深版（原色绿盲模拟后与 plain 完全混淆，见 §4.4） | ΔL 0.083 |
-| com | `#64707a` | 0.1570 | 5.07 / 4.69 | **蓝灰**，放弃绿色传统，见 §4.4 | 蓝-黄轴（灰 vs 琥珀）+ 斜体 |
-| num | `#0a7a52` | 0.1459 | 5.36 / 4.96 | VS Code `#098658` 加深版（原色对 pill 背景仅 4.26，不达 AA） | 蓝-黄轴（青绿绿盲下偏蓝） |
-
-明度阶梯：str（0.064）< kwd（0.086）< kwc（0.117）< plain（0.148）
-< com（0.157）≈ num（0.146）。str 与 kwd 明度接近是有意的：红与蓝
-在任何色盲类型下都不在同一混淆轴上。
-
-### 4.3 Dark 色板
-
-页面背景按 `#1e1e1e` 审计（pill 底色 `#e2bf70` @ 4.5% alpha，有效背景
-`#272522`）。
-
-| 角色 | 色值 | 相对亮度 L | 对比度（页面 / pill） | 取色依据 | 与 plain 的分辨机制 |
-| --- | --- | --- | --- | --- | --- |
-| plain | `#e2bf70` | 0.5460 | 9.46 / 8.68 | 琥珀签名色（0.1.x 沿用） | 基线 |
-| kwc | `#c5a2cd` | 0.4212 | 7.48 / 6.86 | 紫（VS Code `#C586C0` 邻域，0.1.x 沿用） | ΔL 0.125 |
-| kwd | `#7aa7d4` | 0.3653 | 6.59 / 6.04 | 蓝（由 0.1.x 的 `#8eb8dc` 加深，原值 L=0.459 与 kwc 仅差 0.032） | ΔL 0.181 |
-| str | `#ceaa83` | 0.4351 | 7.70 / 7.06 | 橙（0.1.x 沿用） | ΔL 0.111 |
-| com | `#8fa67e` | 0.3462 | 6.29 / 5.77 | 绿灰（0.1.x 沿用） | ΔL 0.200 + 斜体 |
-| num | `#6aab87` | 0.3394 | 6.18 / 5.67 | **新色**，放弃 VS Code `#b5cea8`，见 §4.4 | ΔL 0.207 |
-
-### 4.4 已知边界与让步（诚实清单）
-
-- **Light 注释放弃绿色。** VS Code Light+ 注释 `#008000`（L=0.154）与琥珀
-  plain（L=0.149）等明度，且绿色在绿色盲模拟下与琥珀同落黄褐区——
-  两个分辨机制都失效。蓝灰 `#64707a` 在任何色盲类型下保持"无色调的灰
-  偏蓝"，与黄褐基线可靠分离；代价是牺牲"注释是绿色"的习惯预期，
-  由斜体补偿一部分识别度。
-- **Light 字符串比 VS Code 更深。** `#a31515` 在绿色盲模拟下变为
-  `#848b15`，与 plain 的模拟色 `#828524` 几乎相同（ΔL_sim 0.018）——
-  字符串会完全消失在基线里。加深到 `#8a1e1e` 后模拟明度差 0.051；
-  代价是模拟色距离只剩 23（靠明度差单机制过线），且红色观感变暗。
-- **Light 数字比 VS Code 更深，且与 plain 等明度。** `#098658` 对 pill
-  有效背景仅 4.26:1（不达 AA），加深到 `#0a7a52` 后 4.96:1；但新值
-  L=0.146 与 plain 的 0.148 几乎相同——绿盲下靠色相距离（77）分离，
-  灰度打印/强制去饱和场景下数字与标识符不可区分。接受的代价：灰度
-  场景本来就是单色环境，退化后数字回到"全部 plain"的安全网。
-- **Dark 数字放弃 VS Code 原色。** Dark+ 的 `#b5cea8`（L=0.572）与 plain
-  （L=0.552）明度几乎相同，绿盲模拟下两者都呈黄褐。`#6aab87` 压暗到
-  L=0.339 换 ΔL 0.207，并在绿盲模拟下与 com（ΔL_sim 0.073）、kwd
-  （0.051）都拉开；代价是与 com 的原始明度仅差 0.007（靠色相 57°
-  距离 + 斜体兜底），观感比 VS Code 数字色沉。
-- **全表最紧的通过项：Light com 对 pill 背景 4.69**（余量 0.19）。
-  pill 底色 alpha 或宿主背景若再变浅，它会第一个跌回 FAIL——改 pill
-  底色后必须重跑 color-audit。
-- 对比度数值按白底/`#1e1e1e` 审计；DSH 实际会话背景若偏灰，Light 侧
-  num（4.96）与 com（4.69）余量最薄，应最先复查。
-- forced-colors（Windows 高对比度）模式下所有自定义颜色与 Highlight
-  均被系统接管，pill 退化为系统文字色——这是平台语义，属预期行为。
-
-### 4.5 shiki 代码块
-
-代码块沿用 VS Code Light+/Dark+ 原值（覆盖 `--shiki-token-*` 变量，
-见 styles.css）。代码块是"完整语法环境"，用户期待与编辑器一致；
-inline code 是"摘要环境"，用上面那套克制的 6 色。两种视觉语言并存是
-有意的：块内追求精确，行内追求可扫读。
-
-## 5. 模式检测：宁可 plain，不误判
-
-`detectInlineContext()` 是 tokenizer 的唯一入口，一次计算返回
-`{ mode, badge }`：
-
-| mode | 判定 | 渲染 |
-| --- | --- | --- |
-| `plain` | 默认值；文件名/路径/URL/版本号/纯标识符/术语 | 纯琥珀，不拆色 |
-| `shell` | 首词命中命令表且后跟参数 | `--flag` 参数色、`$VAR` 常量色 |
-| `code` | 含调用 `f(`、赋值 `=`、声明引导词等明确结构 | 9 类 token 着色 |
-
-误判的代价不对称：把 `st.mode` 拆成"属性色"会污染所有普通术语，
-而少染一段真代码只是回到琥珀基线。所有防误伤规则（`#fff` 不是注释、
-URL 的 `//` 不是注释、`i--` 不是 SQL 注释、Windows 路径不是表达式……）
-都有对应的 tokenizer 测试用例，新增规则必须带用例。
-
-文件徽章与 mode 正交：`detectBadge()` 命中时设置 `data-dshcp-badge`
-（`::before` 显示语言缩写），该 code 强制 plain——文件名永远不拆色。
-徽章表只认「无空白、有已知扩展名或特殊文件名」的短字符串：宁可不出
-徽章，不给普通标识符误贴标签。
-
-## 6. 渲染管线
-
-```
-MutationObserver（只读，childList + characterData）
-      │  收集受影响的 <code>（排除 pre/a/button 内）
-      ▼
-requestAnimationFrame 批处理        ← 流式更新的每个 data 变化只入队一次
-      │
-      ▼
-process(code)：textContent 快照去重 → detectInlineContext →
-      设置 class / data-badge；单文本节点时 tokenizeRanges
-      │
-      ▼
-per-code 增量更新 Highlight        ← 见下
-```
-
-**增量 Highlight（0.2.0 起）。** 0.1.x 每个动画帧把全部 code 的 Range
-合并、重建 9 个 `Highlight` 对象，成本随对话长度线性增长（流式期间
-每帧 O(全文 token 数)）。现在每个类别持有一个持久 `Highlight` 对象
-（`Highlight` 是 live 集合，add/delete 实时反映到渲染），process 一个
-code 时先 delete 它的旧 Range 再 add 新 Range，单帧成本降为
-O(本 code 的 token 数)。长对话流式场景下不再随消息数退化。
-
-**单文本节点约束。** 只在 `code.firstChild` 是唯一文本节点且覆盖全部
-textContent 时创建 Range。DSH 渲染的 inline code 满足此约束；不满足时
-（罕见）退化为纯琥珀 pill，不染色，不报错。
-
-**移除即失效。** 元素被移出 DOM 时，它的 Range 与文本快照一起失效
-（`dropRanges` 同时清 `dshcpText`）。若 React 之后把同一元素移回
-（移动子树、虚拟列表回收），process 会因快照缺失完整重跑，badge 与
-Range 全部重建——不会因"文本没变"的快照去重而丢失高亮。
-
-**卸载。** disposer 移除样式、observer、9 个 Highlight、所有 class 与
-data 属性，host 刷新/插件更新后不残留（重载前 host 可能还持有旧
-Highlight 名的注册项，disposer 逐一 `CSS.highlights.delete`）。
-
-### 6.1 降级链
-
-| 条件 | 行为 |
+| 模式 | 行为 |
 | --- | --- |
-| 完整能力 | pill + 徽章 + Highlight 语法色 |
-| 无 CSS Custom Highlight API | pill + 徽章，纯琥珀文字（不跑 tokenizer） |
-| forced-colors | 系统接管全部颜色，退化为普通文字（平台语义） |
-| 非单文本节点 | pill + 徽章，该元素不染色 |
+| off | 不显示标记 |
+| label | 文件名前显示语言缩写 |
+| icon | 文件名前显示单色文件图标 |
+| both | 文件名前图标、文件名后语言缩写 |
 
-## 7. 主题与宿主集成
+图标为本地 CSS SVG mask，继承当前文字色，无 CDN、无品牌 Logo、无消息子节点插入。
+徽章使用独立的实色背景与文字色，避免叠层背景使审计失真。
+文件检测支持常用扩展名、特殊 basename、Windows 分隔符与中文路径；有空白的路径仍保守降级。
 
-- 主题切换：全部颜色定义为 `html:root` / `body[data-ds-dark-theme]`
-  下的 CSS 变量，`::highlight()` 规则引用变量——DSH 切主题时浏览器
-  自动重算，插件零 JS 参与。
-- shiki 覆盖：只改 `--shiki-token-*` 自定义属性，不碰渲染器；
-  选择器特异性高于 theme 包的 `:root` / `body[data-ds-dark-theme]`。
-- pill 样式使用 `!important`：宿主对 `code` 有完整的边框/底色/字号
-  规则，且宿主样式表加载顺序不可控；这是对抗宿主样式的唯一可靠手段，
-  每个声明都需要，不要删减。
-- 徽章用 `::before` 内联伪元素（`vertical-align` 对齐基线），不使用
-  flex 布局——`code` 是 inline 元素，可能在行内折行，flex 会破坏折行
-  语义（0.1.x 的死样式里遗留过无效的 `flex: 0 0 auto`）。
+## 4. 设置数据
 
-## 8. 验证体系
+浏览器 key 为 `dsh-code-pill.settings.v1`；配置 `version: 1`。
+保存范围是当前浏览器、当前 origin，不是账户同步，也不是主机 Profile 配置。
+保存失败保留草稿并显示错误，不声称已保存。无效的已有配置回落默认并提示。
+跨窗口 storage 事件更新当前渲染，不强行覆盖另一个页面正在编辑的草稿。
 
-| 层 | 入口 | 断言什么 |
-| --- | --- | --- |
-| 解析 | `node tests/tokenizer.test.mjs` | 类别序列、防误伤边界、徽章/命令/模式检测 |
-| 色板 | `node scripts/color-audit.mjs` | 对比度 ≥4.5（页面与 pill 背景）、明度差矩阵、绿盲混淆对；任一失败非零退出（CI 拦截） |
-| 渲染 | `node tests/browser-render.test.mjs` | 真实 Chromium：颜色、Highlight ranges、徽章、卸载清理、截图 |
-| 生命周期 | `node tests/client-smoke.test.mjs [cordis]` | Cordis apply/dispose 真实加载 |
+| 字段 | 含义 / 范围 |
+| --- | --- |
+| preset | amber/readable/cool/editor/contrast/custom |
+| syntax | 行内语法着色布尔开关 |
+| marker | off/label/icon/both |
+| fontScale | 0.8–1.1，相对正文 em |
+| radius | 0–10px |
+| padding | 水平 0–0.6em |
+| bgOpacity | 0–0.2 |
+| blockTheme | host/preset |
+| light、dark | 各含 plain/kwc/kwd/str/com/num/bg/badgeBg/badgeText |
 
-色板数值（本文 §4 表格）以 color-audit 输出为准；修改 styles.css 色值
-后必须重跑审计并同步本文。
+默认保留琥珀色与语言徽章，字号 0.94em、圆角 4px、水平内边距 0.25em。
+代码块默认 host：这是可组合扩展，不能默认夺走其他主题插件的代码块配色。
+选择 preset 时，按当前主题生成 `--shiki-*` 变量；返回 host 会移除插件的变量覆盖。
+
+JSON 导入必须通过配置版本、枚举、数值范围、颜色格式与未知字段校验。
+不接受任意 CSS、远程图片地址、脚本或主题代码；导入只进入草稿。
+导出为配置 JSON 文本，不包含聊天内容、凭据或账户数据。
+
+## 5. 五套配对预设与审计
+
+- amber：琥珀经典，延续签名色。
+- readable：柔和阅读，中性基调。
+- cool：冷调清晰，青蓝基调。
+- editor：编辑器经典，熟悉的蓝/绿/暖色语法信号。
+- contrast：高对比，更强的文字明暗差。
+
+每套均分别设计 light/dark，非简单颜色反转。
+预设选择替换完整外观草稿，界面明确提示；修改任何外观参数标记 custom。
+
+内置色板需按默认排版通过审计：六个文字角色对页面背景与合成 pill 背景 ≥4.5:1，徽章文字对徽章底色 ≥4.5:1。
+页面审计背景为白色与 `#1e1e1e`，不能据此宣称对所有宿主主题都合规。
+自定义色板只提示，不禁止保存；审计提醒基于当前预览背景与当前底色强度。
+色盲模拟为辅助设计检查，不等于医学验证或所有视觉障碍下都能分辨的保证。
+数值以 `node scripts/color-audit.mjs` 的当前输出为准，不在本文复制第二份色板表。
+
+## 6. 渲染与生命周期
+
+MutationObserver 监听 childList 与 characterData，受影响的 code 入 Set，RAF 合并处理。
+宿主不存在已核实的稳定聊天 selector 时保留 body fallback，但 pending 为空不安排 RAF。
+处理时重新核验 code 的资格，排除 pre/a/button、内含按钮/链接/SVG 与设置预览区域。
+
+快照包含文本、首节点身份和子节点数。子节点变化使快照失效，避免同文字替换 Text 后旧 Range 空掉但跳过更新。
+迁入排除区域、脱离 DOM 时清除 class、data 与 Range；迁出或重新插入后重新建立。
+配置变化更新样式、清除旧 Range 并重新排队；关闭 syntax 保留 pill 与可选文件标记。
+卸载清理 slot 注册、store 订阅/storage 事件、observer、RAF、样式、Highlight 与装饰属性。
+
+无 Highlight API：pill + 文件标记，不染 token。非单文本节点：安全退化为 plain。
+高对比 forced-colors 由系统接管色彩；不强制保留自定义 RGB。
+
+## 7. 设置页集成
+
+复用宿主 React 和 `@deepseek-ai/dsh-client-ui-primitives` 的 Button、Switch、Input。
+通过 `ctx.slots.inject('settings.section', ...)` 等待扩展入口，由 slot 生命周期拥有注册与注销。
+没有 slots 或缺少 UI 模块时，只禁用设置页面，聊天渲染继续。
+不引入运行时 React 副本；React/ReactDOM 开发依赖只用于浏览器测试。
+
+颜色输入提供 color picker 与完整 #RRGGBB 文本；文本失焦校验，非法输入恢复原值并提示。
+预览包含中文段落、文件名、声明、字符串、命令和代码块。
+宿主代码块预览为示意，不假称独立测试页已经复现宿主完整 Shiki 高亮器。
+
+## 8. 验证入口
+
+- `node tests/tokenizer.test.mjs`：分类、区间、防误伤、文件/命令检测。
+- `node tests/settings.test.mjs`：预设、严格配置、CSS、序列化与审计。
+- `node tests/client-smoke.test.mjs`：模块加载、body-null 降级与生命周期。
+- `node tests/browser-render.test.mjs`：真实 Chromium 颜色、徽章、主题与卸载。
+- `node tests/dynamic-render.test.mjs`：流式节点替换、区域迁移、配置更新与降级。
+- `node tests/settings-browser.test.mjs`：真实 React 草稿、保存、开关、导入、窄屏与清理；宿主控件是结构测试替身，非宿主整体截图验证。
+- `node scripts/color-audit.mjs`：五套默认预设配对主题审计。
+
+源码修改后运行 build 更新 lib/client.js。构建不安装，不更新 Profile，不执行 Git 发布。

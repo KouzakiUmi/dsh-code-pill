@@ -1,21 +1,8 @@
 /**
  * dsh-code-pill — client factory 模板。
- *
- * scripts/build.mjs 把两个占位符行替换为 src/tokenizer.cjs 全文与 CSS
- * 模板字符串字面量，产出自包含的 lib/client.js。
- * 结构对齐官方 client 插件产物：window.__ModuleLoader__ 惰性 CJS factory，
- * 导出 cordis 插件对象 { name, apply }。
- *
- * 渲染策略（React 安全，零 DOM 结构修改，设计细节见 DESIGN.md §6）：
- * - MutationObserver 只读监听对话流，收集 inline code（排除 pre 内、
- *   file mention 按钮与链接化的 code）；
- * - 着色用 CSS Custom Highlight API：tokenize 出字符区间 → Range →
- *   Highlight。九个类别各持有一个持久 Highlight 对象（live 集合），
- *   每个 code 变化时只做 per-code 差量 add/delete——不做全量 rebuild，
- *   单帧成本 O(本 code 的 token 数) 而非 O(全文)；
- * - 徽章用 data-dshcp-badge 属性 + ::before 伪元素；
- * - React 管理的 code 元素只被加 class 与 data 属性，子节点永不改动，
- *   流式更新（nodeValue 赋值）经 characterData mutation 重新着色。
+ * build 内联 tokenizer、CSS 与 settings core/UI，产出自包含 lib/client.js。
+ * React 安全：只修改 code 的 class/data 属性，子节点永不插入/替换。
+ * token 用持久 CSS Highlight 集合与 per-code Range 差量更新。
  */
 window.__ModuleLoader__.load({
 	id: "dsh-code-pill",
@@ -29,16 +16,20 @@ window.__ModuleLoader__.load({
 
 		/* __CSS__ */
 
+		/* __SETTINGS_CORE__ */
+
+		/* __SETTINGS_UI__ */
+
 		var PLUGIN_ID = "dsh-code-pill";
 		var HIGHLIGHT_KEYS = ["kwc", "kwd", "str", "com", "num", "fn", "typ", "cst", "prm"];
+		var CONFIG_BADGES = new Set(["JSON", "YAML", "TOML", "INI", "ENV", "CFG", "PROPS"]);
 
 		function injectStyles() {
 			var previous = document.querySelector('style[data-plugin-css="' + PLUGIN_ID + '"]');
 			if (previous !== null) previous.remove();
 			var tag = document.createElement("style");
 			tag.dataset.pluginCss = PLUGIN_ID;
-			tag.textContent = CSS_TEXT;
-			document.head.appendChild(tag);
+			(document.head || document.body).appendChild(tag);
 			return tag;
 		}
 
@@ -46,17 +37,24 @@ window.__ModuleLoader__.load({
 			return { kwc: [], kwd: [], str: [], com: [], num: [], fn: [], typ: [], cst: [], prm: [] };
 		}
 
-		function startRendering() {
+		function startRendering(store) {
 			if (typeof document === "undefined" || document.body === null) return function () {};
+			// 尚无经过宿主源码/DOM 核验的聊天 selector；不猜测类名。
+			// body 是稳定的 fallback，未来可用已核实的稳定聊天根收窄。
+			var root = document.body;
 			var highlightOk = typeof Highlight !== "undefined"
 				&& typeof CSS !== "undefined" && CSS.highlights != null;
 			var style = injectStyles();
 			var pending = new Set();
 			var codeRanges = new Map();
+			var decorated = new Set();
+			var snapshots = new Map();
 			var scheduled = false;
 			var rafId = 0;
+			var config;
+			var disposed = false;
+			var off = function () {};
 
-			// 九个持久 Highlight：注册一次，之后只做差量 add/delete。
 			var highlights = null;
 			if (highlightOk) {
 				highlights = {};
@@ -67,12 +65,9 @@ window.__ModuleLoader__.load({
 				}
 			}
 
-			// 把 code 的旧 Range 从全部 Highlight 中摘除（code 被移除或
-			// 重新着色前调用）；同时清掉文本快照——被移除的元素若日后
-			// 重新插入（React 移动子树），process 必须完整重跑以重建
-			// Range，不能因为快照相同而跳过。
 			function dropRanges(code) {
 				delete code.dataset.dshcpText;
+				snapshots.delete(code);
 				var old = codeRanges.get(code);
 				if (old === undefined) return;
 				if (highlights !== null) {
@@ -83,120 +78,165 @@ window.__ModuleLoader__.load({
 				codeRanges.delete(code);
 			}
 
-			function queue(code) {
-				if (code === null || code === undefined || code.nodeType !== 1) return;
-				if (code.closest("pre") !== null) return;
-				if (code.closest("a, button") !== null) return;
-				if (code.querySelector("button, a, svg") !== null) return;
+			function cleanupCode(code) {
+				pending.delete(code);
+				// 只撤销本 renderer 的装饰；预览同名class/data属于React，不能碰。
+				if (!decorated.has(code)) return;
+				dropRanges(code);
+				decorated.delete(code);
+				delete code.dataset.dshcpBadge;
+				delete code.dataset.dshcpIcon;
+				code.classList.remove("dshcp-pill");
+			}
+
+			function eligible(code) {
+				return code.isConnected && root.contains(code)
+					&& code.closest("pre, a, button, [data-dshcp-preview]") === null
+					&& code.querySelector("button, a, svg") === null;
+			}
+
+			function queue(code, structureChanged) {
+				if (code === null || code === undefined || code.nodeType !== 1 || code.tagName !== "CODE") return;
+				// 已渲染 code 即使变为不合格也要入队，process 再核验最终状态。
+				if (!eligible(code) && !decorated.has(code)) return;
+				if (structureChanged) snapshots.delete(code);
 				pending.add(code);
 			}
 
 			function process(code) {
+				if (!eligible(code)) {
+					cleanupCode(code);
+					return;
+				}
 				var text = code.textContent ?? "";
-				if (code.dataset.dshcpText === text) return;
-				// 先摘旧 Range 并清旧快照（dropRanges 会删 dshcpText），
-				// 再写新快照——顺序反过来会让快照在 process 末尾被清掉，
-				// 去重失效。
+				var node = code.firstChild;
+				var old = snapshots.get(code);
+				// 同文本替换 Text 节点会令旧 Range 留在脱离的节点，不能仅比文本。
+				if (old !== undefined && old.text === text && old.node === node
+					&& old.childCount === code.childNodes.length) return;
 				dropRanges(code);
 				code.dataset.dshcpText = text;
+				snapshots.set(code, { text: text, node: node, childCount: code.childNodes.length });
 				code.classList.add("dshcp-pill");
-				var ctx = detectInlineContext(text);
-				if (ctx.badge !== null) code.dataset.dshcpBadge = ctx.badge;
-				else delete code.dataset.dshcpBadge;
+				decorated.add(code);
+				var inline = detectInlineContext(text);
+				var marker = config.marker;
+				if ((marker === "label" || marker === "both") && inline.badge !== null) {
+					code.dataset.dshcpBadge = inline.badge;
+				} else delete code.dataset.dshcpBadge;
+				if ((marker === "icon" || marker === "both") && inline.badge !== null) {
+					code.dataset.dshcpIcon = CONFIG_BADGES.has(inline.badge) ? "config" : "file";
+				} else delete code.dataset.dshcpIcon;
 				var ranges = emptyRanges();
-				// 先登记再着色：tokenize/createRange 中途抛异常时，已 add 的
-				// Range 仍在 codeRanges 里，下次 dropRanges 能摘除；catch 保证
-				// 单个 code 的异常不打断整批处理。
+				// 先登记，保证失败后的 partial Range 仍可完整摘除。
 				codeRanges.set(code, ranges);
-				if (highlights !== null && ctx.mode !== "plain" && text.length > 0) {
-					var node = code.firstChild;
-					if (node !== null && node.nodeType === 3 && node.textContent === text) {
-						try {
-							var toks = tokenizeRanges(text, ctx.mode === "shell");
-							for (var t of toks) {
-								var range = document.createRange();
-								range.setStart(node, t.start);
-								range.setEnd(node, t.end);
-								ranges[t.cls].push(range);
-								highlights[t.cls].add(range);
-							}
-						} catch (err) {
-							if (typeof console !== "undefined" && console.warn) {
-								console.warn("dsh-code-pill: tokenize failed", err);
-							}
+				if (config.syntax && highlights !== null && inline.mode !== "plain" && text.length > 0
+					&& node !== null && node.nodeType === 3 && code.childNodes.length === 1) {
+					try {
+						for (var t of tokenizeRanges(text, inline.mode === "shell")) {
+							var range = document.createRange();
+							range.setStart(node, t.start);
+							range.setEnd(node, t.end);
+							ranges[t.cls].push(range);
+							highlights[t.cls].add(range);
+						}
+					} catch (err) {
+						if (typeof console !== "undefined" && console.warn) {
+							console.warn("dsh-code-pill: tokenize failed", err);
 						}
 					}
 				}
 			}
 
 			function schedule() {
-				if (scheduled) return;
+				if (disposed || scheduled || pending.size === 0) return;
 				scheduled = true;
 				rafId = requestAnimationFrame(function () {
 					scheduled = false;
+					rafId = 0;
 					var batch = Array.from(pending);
 					pending.clear();
-					for (var code of batch) {
-						if (code.isConnected) process(code);
-						else dropRanges(code);
-					}
+					for (var code of batch) process(code);
 				});
+			}
+
+			function visitCodes(node, callback) {
+				if (node.nodeType !== 1) return;
+				if (node.tagName === "CODE") callback(node);
+				for (var code of node.querySelectorAll("code")) callback(code);
 			}
 
 			var observer = new MutationObserver(function (mutations) {
 				for (var m of mutations) {
 					if (m.type === "characterData") {
 						var parent = m.target.parentElement;
-						var owner = parent !== null && parent.closest !== undefined ? parent.closest("code") : null;
+						var owner = parent !== null ? parent.closest("code") : null;
 						if (owner !== null) queue(owner);
 					} else if (m.type === "childList") {
 						var changedCode = m.target.closest !== undefined ? m.target.closest("code") : null;
-						if (changedCode !== null) queue(changedCode);
-						for (var node of m.removedNodes) {
-							if (node.nodeType !== 1) continue;
-							if (node.tagName === "CODE") dropRanges(node);
-							else if (node.querySelectorAll !== undefined) {
-								for (var c of node.querySelectorAll("code")) dropRanges(c);
-							}
-						}
-						for (var added of m.addedNodes) {
-							if (added.nodeType !== 1) continue;
-							if (added.tagName === "CODE") queue(added);
-							else if (added.querySelectorAll !== undefined) {
-								for (var c2 of added.querySelectorAll("code")) queue(c2);
-							}
-						}
+						if (changedCode !== null) queue(changedCode, true);
+						for (var node of m.removedNodes) visitCodes(node, cleanupCode);
+						for (var added of m.addedNodes) visitCodes(added, function (code) { queue(code, true); });
 					}
 				}
 				schedule();
 			});
 
-			observer.observe(document.body, { childList: true, characterData: true, subtree: true });
-			for (var initial of document.body.querySelectorAll("code")) queue(initial);
-			schedule();
+			function configure() {
+				if (disposed) return;
+				var next = store && typeof store.getSnapshot === "function" ? store.getSnapshot() : null;
+				config = typeof CP_SETTINGS !== "undefined" ? CP_SETTINGS.normalize(next)
+					: { syntax: true, marker: "label" };
+				style.textContent = CSS_TEXT + "\n" + (typeof CP_SETTINGS !== "undefined" ? CP_SETTINGS.css(config) : "");
+				// 配置变化强制重跑：syntax=false 立即摘除 Range，pill 始终保留。
+				for (var code of Array.from(decorated)) {
+					dropRanges(code);
+					if (!eligible(code)) cleanupCode(code);
+				}
+				for (var initial of root.querySelectorAll("code")) queue(initial, true);
+				schedule();
+			}
+
+			configure();
+			observer.observe(root, { childList: true, characterData: true, subtree: true });
+			if (store && typeof store.subscribe === "function") off = store.subscribe(configure);
 
 			return function () {
+				if (disposed) return;
+				disposed = true;
+				off();
 				observer.disconnect();
 				if (rafId) cancelAnimationFrame(rafId);
+				pending.clear();
+				for (var code of Array.from(decorated)) cleanupCode(code);
+				snapshots.clear();
 				style.remove();
 				if (typeof CSS !== "undefined" && CSS.highlights != null) {
 					for (var key of HIGHLIGHT_KEYS) CSS.highlights.delete("dshcp-" + key);
 				}
-				for (var code of codeRanges.keys()) {
-					delete code.dataset.dshcpText;
-					delete code.dataset.dshcpBadge;
-					code.classList.remove("dshcp-pill");
-				}
-				codeRanges.clear();
 			};
 		}
 
 		function apply(ctx) {
+			if (typeof document === "undefined" || document.body === null) {
+				if (typeof ctx.effect === "function") ctx.effect(function () { return function () {}; }, "dsh-code-pill: inline code rendering");
+				return;
+			}
+			var store = typeof createSettingsStore === "function" ? createSettingsStore() : null;
+			function settings() {
+				return typeof installSettings === "function" ? installSettings(ctx, store) : function () {};
+			}
+			function render() { return startRendering(store); }
 			if (typeof ctx.effect === "function") {
-				ctx.effect(startRendering, "dsh-code-pill: inline code rendering");
+				ctx.effect(settings, "dsh-code-pill: settings UI");
+				ctx.effect(render, "dsh-code-pill: inline code rendering");
 			} else {
-				var cleanup = startRendering();
-				if (typeof ctx.on === "function") ctx.on("dispose", cleanup);
+				var cleanupSettings = settings();
+				var cleanupRender = render();
+				if (typeof ctx.on === "function") ctx.on("dispose", function () {
+					cleanupRender();
+					cleanupSettings();
+				});
 			}
 		}
 

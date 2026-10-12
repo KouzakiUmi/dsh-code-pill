@@ -18,37 +18,21 @@
  */
 
 // ---------------------------------------------------------------------------
-// Palettes under audit (hard-coded, audited only — never "optimised")
+// Palettes under audit: shared configuration source, never a second colour table
 // ---------------------------------------------------------------------------
 
-const THEMES = [
-  {
-    name: 'Light',
-    pageBg: '#ffffff',
-    pill: { color: '#916200', alpha: 0.06 },
-    roles: [
-      ['plain', '#916200'],
-      ['kwd', '#0451a5'],
-      ['kwc', '#9c27b0'],
-      ['str', '#8a1e1e'],
-      ['com', '#64707a'],
-      ['num', '#0a7a52'],
-    ],
-  },
-  {
-    name: 'Dark',
-    pageBg: '#1e1e1e',
-    pill: { color: '#e2bf70', alpha: 0.045 },
-    roles: [
-      ['plain', '#e2bf70'],
-      ['kwc', '#c5a2cd'],
-      ['kwd', '#7aa7d4'],
-      ['str', '#ceaa83'],
-      ['com', '#8fa67e'],
-      ['num', '#6aab87'],
-    ],
-  },
-];
+import { createRequire } from 'node:module';
+const { CP_SETTINGS } = createRequire(import.meta.url)('../src/settings-core.cjs');
+const THEMES = CP_SETTINGS.PRESETS.flatMap((preset) => ['light', 'dark'].map((mode) => {
+  const config = CP_SETTINGS.presetConfig(preset.id);
+  return {
+    name: preset.id + ' / ' + mode,
+    pageBg: mode === 'light' ? '#ffffff' : '#1e1e1e',
+    pill: { color: preset[mode].bg, alpha: config.bgOpacity },
+    roles: CP_SETTINGS.ROLE_KEYS.map(role => [role, preset[mode][role]]),
+    audit: CP_SETTINGS.audit(config, mode, mode === 'light' ? '#ffffff' : '#1e1e1e'),
+  };
+}));
 
 // ---------------------------------------------------------------------------
 // Colour helpers
@@ -288,8 +272,10 @@ for (const theme of THEMES) {
   }
   push();
 
+  const badge = theme.audit.find(item => item.role === 'badge');
+  push(`Badge text contrast: ${C2(badge.ratio)}:1 — ${badge.pass ? 'PASS' : 'FAIL'}.`);
   allPairs.push({ theme: theme.name, passCount, failCount, total: entries.length, failures, pillFailures, pairs });
-  summary.push({ name: theme.name, passCount, failCount, failures, pillFailures, pairs, bgHex: theme.pageBg });
+  summary.push({ name: theme.name, passCount, failCount, failures, pillFailures, pairs, badge, bgHex: theme.pageBg });
 }
 
 // --- 5. Conclusion ---------------------------------------------------------
@@ -310,7 +296,7 @@ for (const s of summary) {
   );
 }
 push();
-const anyFail = summary.some((s) => s.failCount > 0);
+const anyFail = summary.some((s) => s.failCount > 0 || !s.badge.pass);
 const anyPillFail = summary.some((s) => s.pillFailures.length > 0);
 const anyConfusion = summary.some((s) => s.pairs.length > 0);
 push(

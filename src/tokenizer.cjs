@@ -135,11 +135,17 @@ function detectBadge(src) {
   if (typeof src !== 'string') return null;
   var s = src.trim();
   if (s.length === 0 || s.length > 120 || /\s/.test(s)) return null;
-  var special = SPECIAL_FILES.get(s.toLowerCase());
+  // 限定路径字符，排除调用、赋值、URL、算术表达式；允许中文与 Windows 分隔符。
+  var path = s.replace(/\\/g, '/');
+  if (/^[a-z]:\//i.test(path)) path = path.slice(3);
+  else if (path.startsWith('//')) path = path.slice(2);
+  else if (path.startsWith('/')) path = path.slice(1);
+  if (!/^(?:[\p{L}\p{N}_.~-]+\/)*[\p{L}\p{N}_.~-]+$/u.test(path)) return null;
+  var basename = path.slice(path.lastIndexOf('/') + 1).toLowerCase();
+  var special = SPECIAL_FILES.get(basename);
   if (special !== undefined) return special;
-  var m = /^(?:[\w.-]+\/)*([\w.-]+)\.([a-z0-9]+)$/i.exec(s);
-  if (m === null) return null;
-  return EXT_BADGE.get(m[2].toLowerCase()) ?? null;
+  var m = /\.([a-z0-9]+)$/i.exec(basename);
+  return m === null ? null : EXT_BADGE.get(m[1]) ?? null;
 }
 
 /** 首词是否为已知命令（决定整段是否按 shell 规则着色）。 */
@@ -258,7 +264,7 @@ function tokenizeRanges(src, bash) {
     }
 
     // ---- shell：--flag / -x 参数色 ----
-    if (bash === true && ch === '-' && /[A-Za-z]/.test(src[i + 1] ?? '')) {
+    if (bash === true && ch === '-' && (i === 0 || isSpaceChar(src[i - 1]))) {
       var mFlag = /^--?[A-Za-z][\w-]*/.exec(src.slice(i));
       if (mFlag !== null) {
         out.push({ start: i, end: i + mFlag[0].length, cls: 'prm' });
@@ -287,10 +293,10 @@ function tokenizeRanges(src, bash) {
       while (k < n && isSpaceChar(src[k])) k++;
       var nextSig = k < n ? src[k] : '';
       var cls = null;
-      if (KW_CONTROL.has(word)) cls = 'kwc';
+      if (prevSig === '.') cls = nextSig === '(' ? 'fn' : 'prm';
+      else if (KW_CONTROL.has(word)) cls = 'kwc';
       else if (KW_DECL_UPPER.has(word)) cls = 'kwd';
       else if (nextSig === '(') cls = 'fn';
-      else if (prevSig === '.') cls = 'prm';
       else if (KW_DECL.has(word)) cls = 'kwd';
       else if (bash === true && BUILTIN.has(word) && isSpaceChar(src[wordEnd])) cls = 'fn';
       else if (BUILTIN.has(word) && nextSig === '(') cls = 'fn';

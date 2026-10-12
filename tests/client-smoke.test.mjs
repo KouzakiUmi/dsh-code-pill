@@ -86,9 +86,11 @@ if (process.argv[2]) {
 
 // ---- 内联 CSS 关键内容 ----
 assert.match(src, /::highlight\(dshcp-kwc\)/)
-assert.match(src, /--shiki-token-keyword: #569cd6/)
-assert.match(src, /--shiki-token-keyword: #0000ff/)
+assert.match(src, /--shiki-token-keyword/)
+assert.match(src, /settings\.section/)
+assert.match(src, /dsh-code-pill\.settings\.v1/)
 assert.match(src, /data-dshcp-badge/)
-assert.match(src, /--dshcp-plain: #e2bf70/)
+assert.match(src, /#e2bf70/)
+assert.match(src, /--dshcp-plain/)
 
 console.log('dsh-code-pill client smoke: OK')
