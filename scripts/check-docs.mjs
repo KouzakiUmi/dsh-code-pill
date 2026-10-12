@@ -23,11 +23,14 @@ for (const file of files) {
   }
 }
 const readme = readFileSync(resolve(root, 'README.md'), 'utf8')
-assert.match(readme, /尚未正式发布/, 'main and npm release must not be conflated')
+const releaseVersion = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8')).version
+assert.ok(readme.includes(releaseVersion + ' 版本文档'), 'README must identify the current release version')
+assert.match(readme, /main 与 npm 已发布包不自动等同/, 'main and npm release must not be conflated')
+assert.ok(readFileSync(resolve(root, 'CHANGELOG.md'), 'utf8').split(/\r?\n/).includes('## ' + releaseVersion), 'changelog must include the current release')
 const settings = readFileSync(resolve(root, 'docs/settings.md'), 'utf8')
 for (const preset of CP_SETTINGS.PRESETS) {
   assert.ok(settings.includes(preset.name) && settings.includes('`' + preset.id + '`'), `document missing preset ${preset.id}`)
 }
 const pkg = JSON.parse(readFileSync(resolve(root, 'package.json'), 'utf8'))
 assert.ok(pkg.files.includes('docs/'), 'guides must be included in package files')
-console.log(`documentation: ${files.length} pages, ${links} local links, 5 presets, release boundary OK`)
+console.log(`documentation: ${files.length} pages, ${links} local links, ${CP_SETTINGS.PRESETS.length} presets, release boundary OK`)

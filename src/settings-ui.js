@@ -41,12 +41,12 @@ function createSettingsStore() {
   };
 }
 
-function installSettings(ctx, store) {
+function installSettings(ctx, store, fontStore) {
   var slots = typeof ctx.get === 'function' ? ctx.get('slots') : ctx.slots;
   if (!slots) {
     if (typeof ctx.inject !== 'function') return function () {};
     var waiting = ctx.inject(['slots'], function (child) {
-      child.effect(function () { return installSettings(child, store); }, 'dsh-code-pill: deferred settings');
+      child.effect(function () { return installSettings(child, store, fontStore); }, 'dsh-code-pill: deferred settings');
     });
     return function () { waiting.dispose(); };
   }
@@ -94,7 +94,7 @@ function installSettings(ctx, store) {
       h('p', null, '执行 ', code('npm run build'), '，检查 ', code('Dockerfile', 'DOCKER'), '。'),
       h('pre', { className: 'dshcp-preview-block', style: blockStyle }, cfg.blockTheme === 'preset' ? tokenText('const count = 42; // 当前预设配色', Object.assign({}, cfg, { syntax: true }), theme) : 'const count = 42; // 保留宿主配色（示意）'));
   }
-  function SettingsPage() {
+  function CodeAppearance() {
     var saved = React.useSyncExternalStore(store.subscribe, store.getSnapshot);
     var draftState = React.useState(function () { return CP_SETTINGS.normalize(saved); });
     var draft = draftState[0], setDraft = draftState[1];
@@ -115,6 +115,10 @@ function installSettings(ctx, store) {
     var warnings = CP_SETTINGS.audit(draft, theme, theme === 'dark' ? '#1e1e1e' : '#ffffff').filter(function (item) { return !item.pass; });
     return h('div', { className: 'dshcp-settings' },
       h('header', { className: 'dshcp-settings-header' }, h('div', null, h('h2', null, 'Code Pill'), h('p', null, '让代码融入阅读，而不是打断阅读。')), h('span', { className: 'dshcp-local-tag' }, '本浏览器设置')),
+      h('div', { className: 'dshcp-settings-toolbar', role: 'group', 'aria-label': 'Code Pill 操作' }, h('span', { role: 'status', className: 'dshcp-hint' }, status || (dirty ? '有未保存的更改' : '已与保存设置一致')),
+        h('div', { className: 'dshcp-actions' }, button('恢复默认', function () { setDraft(CP_SETTINGS.defaults()); setStatus('默认设置已进入草稿；保存后应用。'); }),
+          button('取消更改', function () { setDraft(CP_SETTINGS.normalize(saved)); setStatus('已取消未保存的更改。'); }, false, !dirty),
+          button('保存并应用', function () { try { store.save(draft); setStatus('已保存并应用。'); } catch (err) { setStatus('保存失败：' + err.message); } }, true, !dirty))),
       h('section', { className: 'dshcp-panel' }, h('h3', null, '外观预设'), h('p', { className: 'dshcp-hint' }, '选择会替换色板与排版草稿；保存后才应用。'),
         h('div', { className: 'dshcp-preset-grid' }, CP_SETTINGS.PRESETS.map(function (preset) {
           return h('button', { type: 'button', key: preset.id, className: 'dshcp-preset', 'aria-pressed': draft.preset === preset.id, onClick: function () { setDraft(CP_SETTINGS.presetConfig(preset.id)); setStatus(''); } },
@@ -142,10 +146,21 @@ function installSettings(ctx, store) {
       h('details', { className: 'dshcp-panel' }, h('summary', null, '导入／导出配置'), h('p', { className: 'dshcp-hint' }, '仅导出 Code Pill 外观配置，不包含聊天内容。导入先进入草稿。'),
         h('textarea', { value: transfer, 'aria-label': '配置 JSON', spellCheck: false, placeholder: '粘贴配置 JSON，或点击导出草稿', onChange: function (event) { setTransfer(event.target.value); } }),
         h('div', { className: 'dshcp-actions' }, button('导出草稿', function () { setTransfer(CP_SETTINGS.stringify(draft)); setStatus('草稿已导出到文本框，可选中复制。'); }), button('导入草稿', function () { try { setDraft(CP_SETTINGS.parse(transfer)); setStatus('导入成功；点击保存后应用。'); } catch (err) { setStatus('导入失败：' + err.message); } }))),
-      h('footer', { className: 'dshcp-settings-footer' }, h('span', { role: 'status', className: 'dshcp-hint' }, status || (dirty ? '有未保存的更改' : '已与保存设置一致')),
-        h('div', { className: 'dshcp-actions' }, button('恢复默认', function () { setDraft(CP_SETTINGS.defaults()); setStatus('默认设置已进入草稿；保存后应用。'); }),
-          button('取消更改', function () { setDraft(CP_SETTINGS.normalize(saved)); setStatus('已取消未保存的更改。'); }, false, !dirty),
-          button('保存并应用', function () { try { store.save(draft); setStatus('已保存并应用。'); } catch (err) { setStatus('保存失败：' + err.message); } }, true, !dirty))));
+    );
+  }
+  var FontSettings = createFontSettings(React, fontStore);
+  function SettingsPage() {
+    var tabState = React.useState('appearance'), tab = tabState[0], setTab = tabState[1];
+    return h('div', null,
+      h('div', { className: 'dshcp-tabs', role: 'tablist', 'aria-label': 'Code Pill 设置分类' }, ['appearance', 'fonts'].map(function (id, index) {
+        return h('button', { key: id, type: 'button', role: 'tab', id: 'dshcp-tab-' + id, 'aria-controls': 'dshcp-panel-' + id, 'aria-selected': tab === id, tabIndex: tab === id ? 0 : -1,
+          onClick: function () { setTab(id); }, onKeyDown: function (event) {
+            var next = event.key === 'Home' ? 'appearance' : event.key === 'End' ? 'fonts' : /^(ArrowLeft|ArrowRight)$/.test(event.key) ? (tab === 'fonts' ? 'appearance' : 'fonts') : null;
+            if (next) { event.preventDefault(); setTab(next); document.getElementById('dshcp-tab-' + next).focus(); }
+          } }, ['代码外观', '字体'][index]);
+      })),
+      h('div', { role: 'tabpanel', id: 'dshcp-panel-appearance', 'aria-labelledby': 'dshcp-tab-appearance', hidden: tab !== 'appearance' }, h(CodeAppearance)),
+      h('div', { role: 'tabpanel', id: 'dshcp-panel-fonts', 'aria-labelledby': 'dshcp-tab-fonts', hidden: tab !== 'fonts', 'data-dshcp-preview': '' }, tab === 'fonts' ? h(FontSettings) : null));
   }
   var registration = slots.inject('settings.section', function () {
     return slots.register({ name: 'settings.section', id: 'dsh-code-pill', order: 65, label: function () { return 'Code Pill'; } }, function () { return h(SettingsPage); });

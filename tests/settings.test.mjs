@@ -1,7 +1,7 @@
 /**
  * dsh-code-pill — settings-core 行为测试（node 直跑，无测试框架）。
  *
- * 覆盖：预设结构（5 套配对深浅色、全 hex 色板）、defaults/presetConfig
+ * 覆盖：预设结构（6 套配对深浅色、全 hex 色板）、defaults/presetConfig
  * 形状、normalize 严格校验（非法抛错、缺失补齐、深拷贝隔离）、
  * css/previewStyle 变量生成（rgba 背景、徽章实色、shiki 开关）、
  * audit（角色 vs 页面/pill 合成背景取最差 + badge）、parse/stringify
@@ -27,8 +27,8 @@ function throws(fn, re) {
 }
 
 // ---- 预设结构 ----
-test('PRESETS: five paired presets with full hex palettes', () => {
-  assert.deepEqual(PRESETS.map((p) => p.id), ['amber', 'readable', 'cool', 'editor', 'contrast'])
+test('PRESETS: six paired presets with full hex palettes', () => {
+  assert.deepEqual(PRESETS.map((p) => p.id), ['amber', 'readable', 'cool', 'editor', 'contrast', 'minimal'])
   for (const p of PRESETS) {
     assert.equal(typeof p.name, 'string')
     assert.equal(typeof p.description, 'string')
@@ -83,6 +83,18 @@ test('presetConfig: full config with selected palette', () => {
     assert.equal(cfg.marker, 'label')
   }
   throws(() => CP_SETTINGS.presetConfig('nope'), /unknown preset/)
+})
+
+test('minimal: subtle layout with full syntax and explicit overrides', () => {
+  const cfg = CP_SETTINGS.presetConfig('minimal')
+  assert.deepEqual([cfg.radius, cfg.padding, cfg.bgOpacity], [3, 0.2, 0.025])
+  assert.equal(cfg.syntax, true)
+  assert.equal(cfg.marker, 'label')
+  assert.deepEqual(CP_SETTINGS.normalize({ version: 1, preset: 'minimal' }), cfg)
+  assert.equal(CP_SETTINGS.normalize({ version: 1, preset: 'minimal', radius: 7 }).radius, 7)
+  assert.deepEqual(CP_SETTINGS.parse(CP_SETTINGS.stringify(cfg)), cfg)
+  assert.equal(CP_SETTINGS.defaults().preset, 'amber')
+  assert.equal(CP_SETTINGS.defaults().bgOpacity, 0.06)
 })
 
 // ---- normalize ----

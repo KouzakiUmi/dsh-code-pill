@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url'
 const root = dirname(dirname(fileURLToPath(import.meta.url)))
 
 const tokenizer = readFileSync(join(root, 'src/tokenizer.cjs'), 'utf8')
-const css = readFileSync(join(root, 'src/styles.css'), 'utf8')
+const css = readFileSync(join(root, 'src/styles.css'), 'utf8') + '\n' + readFileSync(join(root, 'src/font-styles.css'), 'utf8')
 const settingsCore = readFileSync(join(root, 'src/settings-core.cjs'), 'utf8')
 const settingsUI = readFileSync(join(root, 'src/settings-ui.js'), 'utf8')
 const template = readFileSync(join(root, 'src/client-main.js'), 'utf8')
@@ -27,10 +27,12 @@ const cssLiteral = '`' + css
 const out = template
   .replace('/* __TOKENIZER__ */', () => tokenizer)
   .replace('/* __SETTINGS_CORE__ */', () => settingsCore)
+  .replace('/* __FONT_CORE__ */', () => readFileSync(join(root, 'src/font-core.cjs'), 'utf8'))
+  .replace('/* __FONT_UI__ */', () => readFileSync(join(root, 'src/font-ui.js'), 'utf8'))
   .replace('/* __SETTINGS_UI__ */', () => settingsUI)
   .replace('/* __CSS__ */', () => 'var CSS_TEXT = ' + cssLiteral + ';')
 
-if (/__(?:TOKENIZER|SETTINGS_CORE|SETTINGS_UI|CSS)__/.test(out)) {
+if (/__(?:TOKENIZER|SETTINGS_CORE|SETTINGS_UI|FONT_CORE|FONT_UI|CSS)__/.test(out)) {
   throw new Error('placeholder replacement failed')
 }
 

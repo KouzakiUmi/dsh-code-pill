@@ -18,6 +18,10 @@ window.__ModuleLoader__.load({
 
 		/* __SETTINGS_CORE__ */
 
+		/* __FONT_CORE__ */
+
+		/* __FONT_UI__ */
+
 		/* __SETTINGS_UI__ */
 
 		var PLUGIN_ID = "dsh-code-pill";
@@ -223,17 +227,22 @@ window.__ModuleLoader__.load({
 				return;
 			}
 			var store = typeof createSettingsStore === "function" ? createSettingsStore() : null;
+			var fontStore = CP_FONTS.createStore();
 			function settings() {
-				return typeof installSettings === "function" ? installSettings(ctx, store) : function () {};
+				return typeof installSettings === "function" ? installSettings(ctx, store, fontStore) : function () {};
 			}
+			function fonts() { return CP_FONTS.start(fontStore); }
 			function render() { return startRendering(store); }
 			if (typeof ctx.effect === "function") {
 				ctx.effect(settings, "dsh-code-pill: settings UI");
+				ctx.effect(fonts, "dsh-code-pill: typography");
 				ctx.effect(render, "dsh-code-pill: inline code rendering");
 			} else {
 				var cleanupSettings = settings();
 				var cleanupRender = render();
+				var cleanupFonts = fonts();
 				if (typeof ctx.on === "function") ctx.on("dispose", function () {
+					cleanupFonts();
 					cleanupRender();
 					cleanupSettings();
 				});

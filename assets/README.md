@@ -5,7 +5,7 @@
 | 资源 | 内容与来源 |
 | --- | --- |
 | [banner.png](banner.png) | 首页主视觉；右侧为真实客户端行内代码渲染 |
-| [presets.png](presets.png) | 五套配对深浅色预设，名称和颜色读取 [settings-core.cjs](../src/settings-core.cjs) |
+| [presets.png](presets.png) | 六套配对深浅色预设，名称和颜色读取 [settings-core.cjs](../src/settings-core.cjs) |
 | [markers.png](markers.png) | 四种文件标记模式，使用同一份真实客户端 bundle |
 
 ## 重建

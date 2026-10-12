@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/KouzakiUmi/dsh-code-pill/main/assets/banner.png" width="100%" alt="Code Pill：代码更清楚，阅读更连贯。琥珀色行内代码、文件徽章与五套深浅配对预设。">
+  <img src="https://raw.githubusercontent.com/KouzakiUmi/dsh-code-pill/main/assets/banner.png" width="100%" alt="Code Pill：代码更清楚，阅读更连贯。琥珀色行内代码、文件徽章与六套深浅配对预设。">
 </p>
 
 <div align="center">
@@ -14,12 +14,12 @@ DeepSeek Harness 的行内代码外观插件。轻背景、语法色、文件标
 [![npm](https://img.shields.io/npm/v/dsh-code-pill?color=916200&label=npm)](https://www.npmjs.com/package/dsh-code-pill)
 [![MIT](https://img.shields.io/badge/license-MIT-68786a)](LICENSE)
 
-[开始使用](#开始使用) · [挑选色板](#五套色板两种主题) · [设置指南](docs/settings.md) · [开发文档](docs/development.md)
+[开始使用](#开始使用) · [挑选色板](#六套色板两种主题) · [设置指南](docs/settings.md) · [开发文档](docs/development.md)
 
 </div>
 
 > [!NOTE]
-> **本页展示 main 的新增功能，目前尚未正式发布。** npm 的已发布版本与 main 不等同；设置页、五套预设和自定义选项见 [Unreleased 更新记录](CHANGELOG.md)。推送 main 只构建验证包，不会自动发布 npm。
+> **本页为 0.3.0 版本文档。** 设置页、六套预设、字体 Tab 和自定义选项见 [0.3.0 更新记录](CHANGELOG.md)。main 与 npm 已发布包不自动等同；实际发布状态以 [npm](https://www.npmjs.com/package/dsh-code-pill) 与 [GitHub Releases](https://github.com/KouzakiUmi/dsh-code-pill/releases) 为准。推送 main 只构建验证包，不会自动发布 npm。
 
 ## 不必把对话变成编辑器
 
@@ -32,11 +32,11 @@ DeepSeek Harness 的行内代码外观插件。轻背景、语法色、文件标
 | 细读一段代码 | 关键字、字符串、数字与注释分色；路径和术语保持统一颜色 |
 | 调整阅读习惯 | 深浅独立色板、字号和间距；先预览，满意后再保存 |
 
-## 五套色板，两种主题
+## 六套色板，两种主题
 
 不是给同一张图加滤镜。每套都有独立的浅色与深色配色；预设只是起点，每个颜色都能继续调整。
 
-<img src="https://raw.githubusercontent.com/KouzakiUmi/dsh-code-pill/main/assets/presets.png" width="100%" alt="五套预设对比：琥珀经典、柔和阅读、冷调清晰、编辑器经典、高对比；每套同时展示浅色和深色。">
+<img src="https://raw.githubusercontent.com/KouzakiUmi/dsh-code-pill/main/assets/presets.png" width="100%" alt="六套预设对比：琥珀经典、柔和阅读、冷调清晰、编辑器经典、高对比、素雅简约；每套同时展示浅色和深色。">
 
 <sub>展示图由当前客户端 bundle 在隔离 Chromium 页面中真实渲染，并读取源码中的预设；不是生产 DSH 整页截图。</sub>
 
@@ -48,14 +48,18 @@ DeepSeek Harness 的行内代码外观插件。轻背景、语法色、文件标
 
 ## 调到舒服，再应用
 
-在 **设置 → Code Pill** 中编辑：
+在 **设置 → Code Pill** 中使用两个 Tab：**代码外观** 与 **字体**。
+
+代码外观：
 
 - **颜色**：分别调整深浅主题的六个文字角色、胶囊底色和徽章颜色。
 - **排版**：字号比例、圆角、水平内边距、底色强度。
 - **显示**：行内语法着色、文件标记，以及保留宿主／使用当前色板的代码块配色。
 - **管理**：保存并应用、取消草稿、恢复默认、JSON 导入导出。
 
-**草稿不改变聊天。** 设置仅保存到当前浏览器、当前网站地址，不上传、不跨设备自动同步；自定义低对比度配色会提醒，但不禁止保存。
+**代码外观草稿不改变聊天。** 字体 Tab 保留 Font Lab 的即时应用模式，支持全局／等宽字体、界面缩放、会话字号、逐部位覆盖、自定义选择器和 CSS 导出。首次读取原 Font Lab 的本浏览器配置，之后独立保存，不修改原插件配置。
+
+设置仅保存到当前浏览器、当前网站地址，不上传、不跨设备自动同步；同源窗口会同步已保存的设置。字体只引用本机字体，不下载或分发字体文件；「本机字体…」需用户主动点击并授权。合并版本启用前建议停用原 Font Lab，避免两个插件同时覆盖字体；本次源码合并不自动停用或卸载原插件。自定义低对比度配色会提醒，但不禁止保存。
 
 详细操作、默认值和存储范围见 [设置指南](docs/settings.md)。
 
@@ -75,7 +79,7 @@ dsh plugin --profile <profile> add dsh-code-pill
 dsh plugin --profile <profile> update dsh-code-pill@latest
 ```
 
-按部署方式重新打开／重载 DSH，让新客户端模块被加载。**这些命令安装 npm 已发布包，不保证包含本页的 Unreleased 功能。**
+按部署方式重新打开／重载 DSH，让新客户端模块被加载。**这些命令安装 npm 已发布包；本文功能从 0.3.0 起提供，请核对安装版本。**
 
 ### 试用当前 main
 
@@ -92,11 +96,11 @@ dsh plugin --profile <profile> update dsh-code-pill@file:<tarball 的绝对路�
 
 ## 克制，也包括权限
 
-**不接外部服务，不读账户凭据，不访问主机文件系统，不替换 React 管理的消息子节点。** 插件只装饰合格的行内代码、注册 CSS Highlight，并读写自己的浏览器外观配置。
+**不接外部服务，不读账户凭据，不访问主机文件系统，不替换 React 管理的消息子节点。** 插件装饰合格的行内代码、注册 CSS Highlight、注入用户选择的字体／字号／缩放 CSS，并读写浏览器配置；可按需通过浏览器授权读取本机字体族名称，不读取字体文件内容。
 
 默认保留宿主代码块配色。内置预设按白色与 `#1e1e1e` 背景、合成胶囊背景和徽章背景审计，文字对比度达到 4.5:1；这不是对所有宿主主题和自定义颜色的保证。
 
-真实 Chrome 渲染、React 设置交互、Cordis 加载与卸载已有测试证据；**新增设置页尚未在当前生产 DSH 完成现场安装验收**。宿主需提供设置 slot、React 和 UI primitives；能力不足时保留聊天渲染、按能力降级。完整范围见 [兼容性与权限边界](docs/compatibility.md)。
+真实 Chrome 渲染、React 设置交互、Cordis 加载与卸载已有测试证据。验证分层：行内渲染在 Core `0.2.1-alpha.1` 有历史集成验证；当前 Core `0.2.1-alpha.2` 已在桌面 Profile 以本地未发布包、经独立 Chrome 连接真实宿主，完成设置入口、草稿隔离、保存与刷新恢复、文件图标和 41 个真实聊天 code 子节点身份保持的现场验证；生产 Electron 窗口本身尚未直接操作，其他 Core 与浏览器保持未知。本地验收和 main 源码推送均不等于正式发布，不代表 npm `0.2.0` 已包含这些功能。宿主需提供设置 slot、React 和 UI primitives；能力不足时保留聊天渲染、按能力降级。完整范围见 [兼容性与权限边界](docs/compatibility.md)。
 
 ## 进一步了解
 

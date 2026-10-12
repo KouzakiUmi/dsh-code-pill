@@ -1,7 +1,7 @@
 /**
  * dsh-code-pill — settings core（纯函数，无依赖）。
  *
- * 设置页的数据契约：五套配对深浅色预设、自定义色板、图标徽章开关、
+ * 设置页的数据契约：六套配对深浅色预设、自定义色板、图标徽章开关、
  * 排版参数、导入导出。所有函数纯计算、无副作用，node 侧供测试与审计
  * 脚本导入（文件尾 module.exports）；浏览器侧由 scripts/build.mjs 把全文
  * 内联进 client factory，留在 factory 作用域（window 存在时不触发
@@ -112,6 +112,22 @@ var PRESETS = [
       plain: '#f0f0f0', kwc: '#c78bf5', kwd: '#7db3f7', str: '#f49090',
       com: '#a3a3a3', num: '#3fd0a0', bg: '#f0f0f0',
       badgeBg: '#2e2e2e', badgeText: '#f0f0f0',
+    },
+  },
+  {
+    id: 'minimal',
+    name: '素雅简约',
+    description: '中性灰签名色，淡底色与紧凑圆角。',
+    layout: { radius: 3, padding: 0.2, bgOpacity: 0.025 },
+    light: {
+      plain: '#333333', kwc: '#7d3c98', kwd: '#2a5fa8', str: '#8a1e1e',
+      com: '#525e69', num: '#3f6a0d', bg: '#333333',
+      badgeBg: '#ececee', badgeText: '#333333',
+    },
+    dark: {
+      plain: '#d3d4d6', kwc: '#c1a3c7', kwd: '#88a8c6', str: '#cbb397',
+      com: '#8fa67e', num: '#74ae8b', bg: '#d3d4d6',
+      badgeBg: '#303134', badgeText: '#d3d4d6',
     },
   },
 ];
@@ -298,6 +314,7 @@ function normalize(input) {
     var base = PRESET_BY_ID[input.preset] || PRESET_BY_ID.amber;
     out.light = copyPalette(base.light);
     out.dark = copyPalette(base.dark);
+    Object.assign(out, base.layout || {});
   }
   if (input.syntax !== undefined) {
     if (typeof input.syntax !== 'boolean') throw new Error('dsh-code-pill settings: syntax must be boolean');
@@ -324,6 +341,7 @@ function presetConfig(id) {
   out.preset = id;
   out.light = copyPalette(preset.light);
   out.dark = copyPalette(preset.dark);
+  Object.assign(out, preset.layout || {});
   return out;
 }
 

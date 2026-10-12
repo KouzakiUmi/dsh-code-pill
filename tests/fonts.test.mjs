@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+const { CP_FONTS: fonts } = createRequire(import.meta.url)('../src/font-core.cjs');
+const old = { master: true, uiScale: 120, contentSize: '18', globalFamily: 'Example Sans, system-ui', globalMono: 'Example Mono, monospace', vars: {}, rules: [] };
+const next = fonts.withVar(old, '--dsh-font-family-code', { on: true, stack: 'Other Mono' });
+assert.equal(next.uiScale, 120);
+assert.equal(next.contentSize, '18');
+assert.match(fonts.buildCss(next), /--dsh-font-family-code: "Other Mono"/);
+assert.match(fonts.buildCss(next), /zoom: 1.2/);
+assert.match(fonts.buildCss(next), /--dsh-content-font-size: 18px/);
+assert.equal(fonts.buildCss({ ...next, master: false }), '');
+assert.match(fonts.buildCss(fonts.withVar(next, '--dsw-font-markdown-base-font-family', { on: true, stack: 'serif' })), /--dsw-font-markdown-base: var\(--dsw-font-markdown-base-font-style, normal\)/, 'advanced family overrides must update consumed shorthand');
+assert.equal(fonts.normalizeStack('Name; color:red'), '');
+assert.equal(fonts.normalizeStack('Name/*'), '');
+assert.equal(fonts.normalizeSelector('body {} html'), '');
+assert.equal(fonts.normalizeSelector('@import "url"'), '');
+assert.equal(fonts.normalizeStack('Example Sans, monospace'), '"Example Sans", monospace');
+assert.equal(fonts.normalizeState({ uiScale: 999 }).uiScale, 100);
+assert.deepEqual(fonts.normalizeState({ vars: { 'bad;': { on: true, stack: 'X' } }, rules: [null] }).vars, {});
+const normalized = fonts.normalizeState(old);
+assert.notEqual(normalized.vars, old.vars);
+const values = new Map([['dsh-font-lab/v1', JSON.stringify(old)]]);
+const listeners = new Set();
+globalThis.window = {
+ localStorage: { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) },
+ addEventListener: (name, cb) => listeners.add(cb), removeEventListener: (name, cb) => listeners.delete(cb)
+};
+const store = fonts.createStore();
+assert.equal(store.getSnapshot().uiScale, 120, 'legacy configuration is imported');
+assert.equal(store.getSnapshot(), store.getSnapshot(), 'snapshot is cached');
+let notified = 0;
+const off = store.subscribe(() => notified++);
+store.save(next);
+assert.ok(values.has('dsh-code-pill.fonts.v1'));
+assert.equal(JSON.parse(values.get('dsh-font-lab/v1')).uiScale, 120, 'legacy settings remain untouched');
+for (const cb of listeners) cb({ key: 'dsh-code-pill.fonts.v1', newValue: JSON.stringify({ ...next, uiScale: 130 }) });
+assert.equal(store.getSnapshot().uiScale, 130);
+window.localStorage.setItem = () => { throw Error('denied'); };
+store.save(old);
+assert.match(store.getError(), /保存失败/);
+assert.equal(store.getSnapshot().uiScale, 120, 'live font application survives storage failure');
+assert.equal(notified, 3);
+off();
+assert.equal(listeners.size, 0);
+console.log('fonts: state retention, validation, CSS, migration, persistence, sync, failure feedback, subscription cleanup OK');

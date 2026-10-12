@@ -1,18 +1,23 @@
 # 兼容性与权限边界
 
-本文针对当前 **Unreleased / main** 的代码。新增五套预设、自定义色板、设置页、图标和持久化能力不能据此归属于已发布 npm `0.2.0`；[package.json](../package.json) 中仍保留该版本字段，并不构成新增功能已发布的证据。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
+本文针对 **0.3.0** 的代码。新增六套预设、自定义色板、双 Tab 设置页、图标、字体及持久化能力不属于 npm `0.2.0`；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
 
 ## 已知证据，不扩大结论
 
 | 层级 | 已知事实 | 不能据此声称 |
 | --- | --- | --- |
 | 历史 DSH 集成 | 原有行内渲染在 Core `0.2.1-alpha.1` / Cordis `4.0.5-alpha.1` 上有历史验证；包清单仅标记该 Core compatible | 当前新增设置页已在该 Core 整个真实现场重新验证；其他 Core 自动兼容 |
+| 当前宿主现场 | 桌面 Profile 安装本地未发布包、独立 Chrome 连接真实宿主（Core `0.2.1-alpha.2`）：设置 slots 入口、草稿隔离、保存实际聊天色板、三个真实文件节点的图标、语法关闭后 Range 清空、导出 JSON、刷新恢复均通过；41 个真实聊天 code 子节点身份未被改写；深/浅标题颜色与宿主正文对齐 | 生产 Electron 窗口本身已被直接操作；npm `0.2.0` 已包含这些功能 |
 | 浏览器渲染 | 真实 Chrome 测试检查最终 bundle 的颜色、Highlight ranges、徽章、主题、动态节点与卸载；新增设置/动态测试已在本机通过 | 所有浏览器、桌面壳、宿主主题都通过；测试夹具等于生产消息页 |
-| 设置页 | [settings-browser.test.mjs](../tests/settings-browser.test.mjs) 使用真实 React/ReactDOM，Button、Switch、Input 和 slots 为结构测试替身 | 宿主真实控件样式、完整设置导航、生产 Shiki 高亮器已端到端验证 |
+| 设置页测试 | [settings-browser.test.mjs](../tests/settings-browser.test.mjs) 使用真实 React/ReactDOM，Button、Switch、Input 和 slots 为结构测试替身 | 控件样式等于生产宿主真实控件；完整设置导航、生产 Shiki 高亮器已端到端验证 |
 | Cordis 生命周期 | 已使用本机实际安装的 Cordis 入口运行 [client-smoke.test.mjs](../tests/client-smoke.test.mjs)，真实 fiber 加载与卸载检查通过；DOM 为最小桩 | 此测试覆盖真实 settings.section、宿主所有服务、热更新的全部现场行为 |
-| 当前 DSH 安装 | 本轮未将当前 Unreleased 插件安装/更新到 DSH profile，未修改宿主安装 | 已在当前生产 DSH 设置页试用或完成部署 |
+| 当前 DSH 安装 | 上述现场验证使用本地未发布的工作区包；通过桌面配套 CLI 更新 desktop 的插件来源与 lockfile，未修改宿主安装代码、未手改 Profile 配置；验证页临时外观已恢复 | npm 包已发布；其他 Profile 已部署；所有客户端缓存均已刷新 |
+
+上述证据来自 2026-10-12 的本地工作区验收，不代表已发布到 npm，也不把基础设置已推送 main 与正式发版混为一谈。npm `0.2.0` 不包含这些新增功能。
 
 桌面应用壳版本不等于 Core 版本。实际 Core 导出契约和 UI 模块应按目标环境核验；其他 Core 版本保持“未知”，不把历史声明升级为全面兼容保证。包声明 Node `>=18`，开发/CI 使用 Node 24，未建立各 Node 版本的完整测试矩阵。
+
+本次 Font Lab 合并尚未安装到生产 Profile。双 Tab、字体 CSS、字号／缩放保留、跨窗口同步、存储失败与卸载在隔离 Chrome + React 测试中验证；字体族读取授权、生产终端与 CSS zoom 弹窗仍需现场验收，不能沿用上面的历史验收作为合并版本已部署的证据。
 
 ## 宿主能力与降级
 
@@ -39,6 +44,8 @@
 - 导出是配置 JSON 文本，不含聊天内容、账户或凭据。导入严格校验版本、字段、枚举、范围与颜色，不接受任意 CSS、脚本或远程资源。
 - localStorage 不是加密秘密库；同 origin 中具备执行权限的其他脚本可能访问它，不应把敏感信息填入外观配置。
 
+字体 Tab 额外使用 `dsh-code-pill.fonts.v1`，首次兼容读取原 `dsh-font-lab/v1`，候选字体缓存复用 `dsh-font-lab/fonts`。字体为即时应用：保存失败时本页仍生效并反馈未持久化，与代码外观草稿模式不同。用户主动点击「本机字体…」后才请求浏览器 Local Font Access 权限，仅缓存族名称，不下载、复制或分发字体文件。用户自定义选择器可影响整个页面字体；总开关与卸载会清理本插件覆盖，但不会清理其他插件样式。
+
 ## 零外网与主机边界
 
 | 能力 | 当前插件行为 |
@@ -53,7 +60,7 @@
 
 ## 未覆盖与风险
 
-- 未安装到当前 DSH，尚缺真实宿主设置页、控件外观、导航和完整 Shiki 链路的现场验收。
+- 生产 Electron 窗口本身尚未直接操作；生产完整设置导航与 Shiki 链路仍缺最终验收。
 - 默认浏览器测试为 Chrome；Edge 通道可选不等于已通过，Firefox/WebKit 及其他宿主/Core 未验证。
 - [color-audit.mjs](../scripts/color-audit.mjs) 按白色与 `#1e1e1e` 页面背景、默认底色强度和徽章背景审计；不保证任意宿主背景或用户自定义颜色均满足对比度。自定义低对比度可保存，仅警告。
 - 色盲模拟是辅助检查，不是医学验证；forced-colors 的系统配色与布局仍应现场检查。

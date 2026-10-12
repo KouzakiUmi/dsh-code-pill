@@ -4,7 +4,7 @@
 
 Code Pill 用于 DSH 对话中的行内代码：薄背景、克制的语法色、可选文件标记。
 设置页注册到宿主 `settings.section`，不建立独立服务器，不向消息插入交互按钮。
-本次增加五套深浅配对预设、自定义颜色、文件标记、排版参数、代码块颜色与配置导入导出。
+0.3.0 增加六套深浅配对预设、自定义颜色、文件标记、排版参数、代码块颜色与配置导入导出，并将 Font Lab 接入第二个「字体」Tab。字体即时应用，代码外观保留草稿和显式保存，两者独立存储与清理。
 
 ## 2. 核心约束
 
@@ -44,7 +44,7 @@ fn/typ/cst/prm 并入 plain：行内表达式不是完整编辑器，不必把�
 
 | 字段 | 含义 / 范围 |
 | --- | --- |
-| preset | amber/readable/cool/editor/contrast/custom |
+| preset | amber/readable/cool/editor/contrast/minimal/custom |
 | syntax | 行内语法着色布尔开关 |
 | marker | off/label/icon/both |
 | fontScale | 0.8–1.1，相对正文 em |
@@ -62,13 +62,14 @@ JSON 导入必须通过配置版本、枚举、数值范围、颜色格式与未
 不接受任意 CSS、远程图片地址、脚本或主题代码；导入只进入草稿。
 导出为配置 JSON 文本，不包含聊天内容、凭据或账户数据。
 
-## 5. 五套配对预设与审计
+## 5. 六套配对预设与审计
 
 - amber：琥珀经典，延续签名色。
 - readable：柔和阅读，中性基调。
 - cool：冷调清晰，青蓝基调。
 - editor：编辑器经典，熟悉的蓝/绿/暖色语法信号。
 - contrast：高对比，更强的文字明暗差。
+- minimal：素雅简约，中性灰默认文字与克制的语法色；几何默认更紧凑（圆角 3px、水平内边距 0.2em、底色强度 0.025），语法着色开启、语言文字标记与字号 0.94× 沿用默认，不隐藏任何功能。
 
 每套均分别设计 light/dark，非简单颜色反转。
 预设选择替换完整外观草稿，界面明确提示；修改任何外观参数标记 custom。
@@ -112,6 +113,6 @@ MutationObserver 监听 childList 与 characterData，受影响的 code 入 Set�
 - `node tests/browser-render.test.mjs`：真实 Chromium 颜色、徽章、主题与卸载。
 - `node tests/dynamic-render.test.mjs`：流式节点替换、区域迁移、配置更新与降级。
 - `node tests/settings-browser.test.mjs`：真实 React 草稿、保存、开关、导入、窄屏与清理；宿主控件是结构测试替身，非宿主整体截图验证。
-- `node scripts/color-audit.mjs`：五套默认预设配对主题审计。
+- `node scripts/color-audit.mjs`：六套默认预设配对主题审计。
 
 源码修改后运行 build 更新 lib/client.js。构建不安装，不更新 Profile，不执行 Git 发布。

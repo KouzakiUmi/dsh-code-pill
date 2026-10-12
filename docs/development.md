@@ -1,6 +1,6 @@
 # 开发与验证
 
-本文描述当前 **Unreleased / main** 的源码与交付流程，不表示这些新增功能已经发布到 npm `0.2.0`。包版本字段见 [package.json](../package.json)；产品约定见 [DESIGN.md](../DESIGN.md)，验证边界见 [兼容性说明](compatibility.md)。
+本文描述 **0.3.0** 的源码与交付流程，npm `0.2.0` 不包含这些新增功能；实际发布状态以 registry 和 GitHub Release 为准。包版本字段见 [package.json](../package.json)；产品约定见 [DESIGN.md](../DESIGN.md)，验证边界见 [兼容性说明](compatibility.md)。
 
 ## 环境与完整自检
 
@@ -16,6 +16,7 @@ node scripts/check-manifest.mjs
 node scripts/check-docs.mjs
 node tests/tokenizer.test.mjs
 node tests/settings.test.mjs
+node tests/fonts.test.mjs
 node tests/client-smoke.test.mjs
 node tests/browser-render.test.mjs
 node tests/dynamic-render.test.mjs
@@ -30,7 +31,7 @@ node scripts/prepare-release.mjs
 | 入口 | 主要检查 |
 | --- | --- |
 | [tokenizer.test.mjs](../tests/tokenizer.test.mjs) | 分类、Range 区间、术语/路径防误伤、文件与命令识别 |
-| [settings.test.mjs](../tests/settings.test.mjs) | 五套配对预设、严格配置校验、CSS 生成、序列化、对比度 |
+| [settings.test.mjs](../tests/settings.test.mjs) | 六套配对预设、严格配置校验、CSS 生成、序列化、对比度 |
 | [client-smoke.test.mjs](../tests/client-smoke.test.mjs) | 模块工厂、body 未就绪降级、样式注入和清理 |
 | [browser-render.test.mjs](../tests/browser-render.test.mjs) | 真实浏览器颜色、Highlight ranges、徽章、主题切换、卸载 |
 | [dynamic-render.test.mjs](../tests/dynamic-render.test.mjs) | 流式节点变化、Range 身份、区域迁移、设置更新和降级 |
@@ -53,6 +54,9 @@ node tests/client-smoke.test.mjs <目标安装的 cordis/lib/index.js 绝对路�
 src/settings-core.cjs ──┬── CSS 变量生成 / 配置校验 / 预览 / 对比度审计
                        ├── src/settings-ui.js（草稿与浏览器存储）
                        └── scripts/color-audit.mjs、tests/settings.test.mjs
+src/font-core.cjs ────────── 字体配置 / CSS / 外部状态库 / 旧配置读取
+src/font-ui.js ───────────── 字体 Tab 与逐部位配置
+src/font-styles.css ──────── 字体面板与双 Tab 布局
 src/tokenizer.cjs ────────── 行内分类、文件与命令识别
 src/styles.css ───────────── 几何、伪元素、设置布局
 src/client-main.js ───────── DOM 观察、RAF、Highlight、生命周期
@@ -73,13 +77,13 @@ lib/index.js ─────────────── host 空操作
 
 ## 首页展示与文档检查
 
-[render-doc-assets.mjs](../scripts/render-doc-assets.mjs) 读取当前 bundle 和预设，使用隔离的 Chromium frames 生成首页 Banner、五套配对色板对比与文件标记图。开发机使用已安装的开源字体；不打包字体，不调用图片生成服务，不把隔离预览冒充生产 DSH 截图。重建方式见 [展示资源说明](../assets/README.md)。
+[render-doc-assets.mjs](../scripts/render-doc-assets.mjs) 读取当前 bundle 和预设，使用隔离的 Chromium frames 生成首页 Banner、六套配对色板对比与文件标记图。开发机使用已安装的开源字体；不打包字体，不调用图片生成服务，不把隔离预览冒充生产 DSH 截图。重建方式见 [展示资源说明](../assets/README.md)。
 
-[check-docs.mjs](../scripts/check-docs.mjs) 检查文档的本地链接、五套预设名称、docs 打包清单与 main/正式版本边界；CI 和发布 verify 均执行它。截图资源保存在仓库，普通构建不会因本机字体变化而重新生成图片。
+[check-docs.mjs](../scripts/check-docs.mjs) 检查文档的本地链接、预设名称（按 settings-core 实际数量核对）、docs 打包清单与 main/正式版本边界；CI 和发布 verify 均执行它。截图资源保存在仓库，普通构建不会因本机字体变化而重新生成图片。
 
 ## CI 与发布不是同一操作
 
-[ci.yml](../.github/workflows/ci.yml) 在 **main 推送与 PR** 上执行 Node 24 安装、构建、语法与 manifest 检查、全部六项测试、色板审计和打包。构建后使用 `git diff --exit-code -- lib/client.js` 检查提交产物是否漂移；成功后上传 `verified-package` artifact（`dist/`）。**main 推送或 PR 不会发布 npm，也不会创建 GitHub Release。**
+[ci.yml](../.github/workflows/ci.yml) 在 **main 推送与 PR** 上执行 Node 24 安装、构建、语法与 manifest 检查、全部七项测试、色板审计和打包。构建后使用 `git diff --exit-code -- lib/client.js` 检查提交产物是否漂移；成功后上传 `verified-package` artifact（`dist/`）。**main 推送或 PR 不会发布 npm，也不会创建 GitHub Release。**
 
 [release.yml](../.github/workflows/release.yml) 由 `v*` 标签触发；手动恢复也必须选择标签 ref。verify job 要求标签精确等于包版本前加 `v`，重复完整验证并上传 `release-package`。npm 与 GitHub jobs 都使用这个已验证 tarball，而非重新打包。
 

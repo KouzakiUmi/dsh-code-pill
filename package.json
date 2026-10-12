@@ -1,8 +1,8 @@
 {
   "name": "dsh-code-pill",
   "displayName": "Code Pill / Antigravity 风格代码渲染",
-  "version": "0.2.0",
-  "description": "Customizable inline code rendering for DSH: five paired light/dark presets, audited syntax palettes, optional file icons and badges, typography controls, and a host-integrated settings page.",
+  "version": "0.3.0",
+  "description": "Customizable inline code rendering for DSH: six paired light/dark presets, audited syntax palettes, optional file icons and badges, typography controls, Font Lab overrides, and dual-tab host-integrated settings.",
   "type": "module",
   "main": "lib/index.js",
   "engines": {

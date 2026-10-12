@@ -1,0 +1,283 @@
+/*
+ * dsh-font-lab — 设置页「字体」区块的样式。
+ * 全部走核心的语义令牌（--dsw-alias-*），跟随主题明暗，不写死颜色。
+ */
+
+.dshcp-tabs { display: flex; gap: 8px; margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+.dshcp-tabs button { font: inherit; padding: 8px 16px; border: 1px solid transparent; border-radius: 8px; color: var(--dsw-alias-label-secondary); background: transparent; cursor: pointer; }
+.dshcp-tabs button[aria-selected="true"] { color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-1); }
+
+.dfl-root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0 28px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.dfl-head {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dfl-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+.dfl-desc {
+  margin: 0;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.dfl-master {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.dfl-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dfl-switchLabel {
+  color: var(--dsw-alias-label-primary);
+}
+
+.dfl-global {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dfl-scale {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dfl-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dfl-pickerRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.dfl-select {
+  flex: 1 1 220px;
+  min-width: 0;
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1));
+  color: var(--dsw-alias-label-primary);
+  color-scheme: inherit;
+}
+
+.dfl-select:focus {
+  outline: none;
+  border-color: var(--dsw-alias-brand-primary);
+}
+
+.dfl-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dfl-fieldLabel {
+  font-size: 13px;
+  color: var(--dsw-alias-label-primary);
+}
+
+.dfl-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.dfl-btn {
+  font: inherit;
+  font-size: 13px;
+  line-height: 18px;
+  padding: 6px 12px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: inherit;
+  /* 让原生部件（下拉箭头、数字微调、滚动条）跟随主题明暗 */
+  color-scheme: inherit;
+  cursor: pointer;
+}
+
+.dfl-btn:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.dfl-btnDanger {
+  color: var(--dsw-alias-state-error-primary, #d94a4a);
+}
+
+/*
+ * 主按钮刻意不做实心填充：--dsw-alias-brand-primary 是主题反转色
+ * （亮色近黑、暗色近白），实心填充再配硬编码前景会在暗色下变成白底白字。
+ * 这里改为「品牌色描边 + 品牌色文字」，两种主题下都自动可读。
+ */
+.dfl-btnPrimary {
+  border-color: var(--dsw-alias-brand-primary);
+  color: var(--dsw-alias-brand-primary);
+  font-weight: 600;
+}
+
+.dfl-btnPrimary:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  filter: none;
+}
+
+.dfl-btnActive {
+  border-color: var(--dsw-alias-brand-primary);
+  color: var(--dsw-alias-brand-primary);
+  font-weight: 600;
+}
+
+.dfl-group {
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 10px;
+  padding: 10px 12px;
+}
+
+.dfl-group > summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary);
+}
+
+.dfl-count {
+  font-weight: 400;
+  color: var(--dsw-alias-label-tertiary);
+}
+
+.dfl-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.dfl-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dfl-rowHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dfl-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.dfl-label {
+  color: var(--dsw-alias-label-primary);
+}
+
+.dfl-varName {
+  font-family: var(--ds-font-family-code, ui-monospace, monospace);
+  font-size: 11px;
+  color: var(--dsw-alias-label-tertiary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dfl-input {
+  box-sizing: border-box;
+  width: 100%;
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1));
+  color: var(--dsw-alias-label-primary);
+  color-scheme: inherit;
+}
+
+.dfl-input:focus {
+  outline: none;
+  border-color: var(--dsw-alias-brand-primary);
+}
+
+.dfl-hint {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--dsw-alias-label-tertiary);
+  word-break: break-word;
+}
+
+.dfl-ruleRow {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr) 32px;
+  gap: 8px;
+  align-items: center;
+}
+
+.dfl-export {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 170px;
+  font-family: var(--ds-font-family-code, ui-monospace, monospace);
+  font-size: 12px;
+  line-height: 1.6;
+  padding: 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-layer-1);
+  color: var(--dsw-alias-label-secondary);
+  color-scheme: inherit;
+  resize: vertical;
+}
+
+/*
+ * 暗色主题下让原生部件（下拉箭头、数字微调、滚动条）也按暗色渲染。
+ * 核心一般会在 html 上设 color-scheme，这里再按暗色属性兜一层，
+ * 避免宿主没设时出现「深色按钮里嵌一个亮色下拉箭头」。
+ */
+body[data-ds-dark-theme] .dfl-btn,
+body[data-ds-dark-theme] .dfl-select,
+body[data-ds-dark-theme] .dfl-input,
+body[data-ds-dark-theme] .dfl-export {
+  color-scheme: dark;
+}

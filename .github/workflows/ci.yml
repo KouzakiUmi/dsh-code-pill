@@ -17,7 +17,7 @@ jobs:
       - run: npm ci --ignore-scripts
       - run: node scripts/build.mjs && git diff --exit-code -- lib/client.js
       - run: node scripts/check-manifest.mjs && node scripts/check-docs.mjs && node --check lib/client.js
-      - run: node tests/tokenizer.test.mjs && node tests/settings.test.mjs && node tests/client-smoke.test.mjs
+      - run: node tests/tokenizer.test.mjs && node tests/settings.test.mjs && node tests/fonts.test.mjs && node tests/client-smoke.test.mjs
       - run: node scripts/color-audit.mjs
       - run: node tests/browser-render.test.mjs && node tests/dynamic-render.test.mjs && node tests/settings-browser.test.mjs
       - run: npm pack --ignore-scripts --json > pack.json && node scripts/prepare-release.mjs
