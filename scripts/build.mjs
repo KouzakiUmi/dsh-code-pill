@@ -27,7 +27,7 @@ const cssLiteral = '`' + css
 const out = template
   .replace('/* __TOKENIZER__ */', () => tokenizer)
   .replace('/* __SETTINGS_CORE__ */', () => settingsCore)
-  .replace('/* __FONT_CORE__ */', () => readFileSync(join(root, 'src/font-core.cjs'), 'utf8'))
+  .replace('/* __FONT_CORE__ */', () => readFileSync(join(root, 'src/font-catalog.cjs'), 'utf8') + '\n' + readFileSync(join(root, 'src/font-core.cjs'), 'utf8'))
   .replace('/* __FONT_UI__ */', () => readFileSync(join(root, 'src/font-ui.js'), 'utf8'))
   .replace('/* __SETTINGS_UI__ */', () => settingsUI)
   .replace('/* __CSS__ */', () => 'var CSS_TEXT = ' + cssLiteral + ';')

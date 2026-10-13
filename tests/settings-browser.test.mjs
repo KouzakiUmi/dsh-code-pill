@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module'
 import { readFileSync, mkdirSync } from 'node:fs'
 import assert from 'node:assert/strict'
+import { makeFont } from './fixtures/synthetic-font.mjs'
 const require = createRequire(import.meta.url)
 const { chromium } = require('playwright-core')
 const { CP_SETTINGS } = require('../src/settings-core.cjs')
@@ -44,6 +45,7 @@ try {
       window.cleanup = () => disposers.reverse().forEach(off => off())
     } }
   })
+  await page.evaluate(() => localStorage.setItem('dsh-font-lab/fonts', JSON.stringify(['Old stale candidate'])))
   await page.addScriptTag({ content: readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8') })
   await page.getByRole('heading', { name: 'Code Pill', exact: true }).waitFor()
   assert.equal(await page.evaluate(() => window.settingsMeta.name), 'settings.section')
@@ -139,6 +141,53 @@ try {
   assert.equal(await page.getByRole('tab').count(), 2)
   await page.getByLabel('文件标记', { exact: true }).selectOption('icon')
   await page.getByRole('tab', { name: '字体', exact: true }).click()
+  assert.equal(await page.getByRole('button', { name: /更纱|思源|霞鹜/ }).count(), 0, 'no hardcoded font combinations')
+  assert.equal(await page.locator('.dfl-row').count(), 0, 'closed advanced sections do not mount pickers')
+  assert.equal(await page.locator('.dfl-picker').count(), 2)
+  assert.equal(await page.locator('.dfl-picker').first().getByLabel('选择字体', { exact: true }).locator('option').count(), 1, 'no assumed font candidates')
+  const fontData = [
+    { family: 'Detected Latin', bytes: [...new Uint8Array(makeFont())] },
+    { family: 'Detected CJK Mono', bytes: [...new Uint8Array(makeFont({ han: true, mono: true }))] },
+    { family: 'Unreadable Font', bytes: null },
+    { family: 'Family, With Comma', bytes: [...new Uint8Array(makeFont())] }
+  ]
+  await page.evaluate(data => {
+    window.fontQueryCount = 0
+    window.queryLocalFonts = async () => { window.fontQueryCount++; return data.map(item => ({ family: item.family, blob: async () => {
+      if (!item.bytes) throw Error('unreadable'); return new Blob([new Uint8Array(item.bytes)])
+    } })) }
+  }, fontData)
+  await page.getByRole('button', { name: '读取 / 刷新本机字体', exact: true }).click()
+  await page.getByRole('status').filter({ hasText: '已读取 4 个字体族' }).waitFor()
+  const firstPicker = page.locator('.dfl-picker').first()
+  await firstPicker.getByLabel('字体分类', { exact: true }).selectOption('han')
+  assert.deepEqual(await firstPicker.getByLabel('选择字体', { exact: true }).locator('option').allTextContents(), ['选择字体…', 'Detected CJK Mono'])
+  await firstPicker.getByLabel('选择字体', { exact: true }).selectOption('Detected CJK Mono')
+  await firstPicker.getByRole('button', { name: '添加', exact: true }).click()
+  assert.equal(await firstPicker.locator('.dfl-input').inputValue(), '"Detected CJK Mono"')
+  await firstPicker.getByLabel('搜索字体', { exact: true }).fill('not-installed')
+  assert.equal(await firstPicker.getByRole('button', { name: '添加', exact: true }).isDisabled(), true)
+  await firstPicker.getByLabel('搜索字体', { exact: true }).fill('')
+  await firstPicker.getByLabel('字体分类', { exact: true }).selectOption('unknown')
+  assert.deepEqual(await firstPicker.getByLabel('选择字体', { exact: true }).locator('option').allTextContents(), ['选择字体…', 'Unreadable Font'])
+  assert.deepEqual(await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-font-lab/fonts'))), ['Old stale candidate'], 'old font cache is neither used nor overwritten')
+  await firstPicker.getByLabel('字体分类', { exact: true }).selectOption('all')
+  await firstPicker.getByLabel('选择字体', { exact: true }).selectOption('Family, With Comma')
+  await firstPicker.getByRole('button', { name: '添加', exact: true }).click()
+  assert.equal(await firstPicker.locator('.dfl-input').inputValue(), '"Detected CJK Mono", "Family, With Comma"', 'API family is one literal name')
+  await page.getByRole('button', { name: '清除已读取名单', exact: true }).click()
+  assert.equal(await firstPicker.getByLabel('选择字体', { exact: true }).isDisabled(), true)
+  assert.equal(await firstPicker.locator('.dfl-input').inputValue(), '"Detected CJK Mono", "Family, With Comma"', 'clearing catalog preserves chosen stack')
+  await page.evaluate(() => { window.queryLocalFonts = () => Promise.reject(new DOMException('permission denied', 'NotAllowedError')) })
+  await page.getByRole('button', { name: '读取 / 刷新本机字体', exact: true }).click()
+  await page.getByRole('status').filter({ hasText: 'NotAllowedError' }).waitFor()
+  assert.equal(await firstPicker.getByLabel('选择字体', { exact: true }).isDisabled(), true, 'failed refresh clears stale candidates')
+  await page.evaluate(() => { window.queryLocalFonts = () => new Promise(resolve => { window.resolveFontQuery = resolve }) })
+  await page.getByRole('button', { name: '读取 / 刷新本机字体', exact: true }).click()
+  await page.getByRole('tab', { name: '代码外观', exact: true }).click()
+  await page.evaluate(() => window.resolveFontQuery([{ family: 'Late stale family' }]))
+  await page.getByRole('tab', { name: '字体', exact: true }).click()
+  assert.equal(await page.locator('.dfl-picker').first().getByLabel('选择字体', { exact: true }).locator('option').count(), 1, 'late permission result cannot repopulate unmounted tab')
   await page.getByRole('button', { name: '120%', exact: true }).click()
   await page.locator('.dfl-scale input[type=number]').fill('18')
   await page.locator('.dfl-global .dfl-input').first().fill('Example Sans, system-ui')

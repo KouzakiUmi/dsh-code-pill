@@ -76,6 +76,13 @@
   gap: 6px;
 }
 
+.dfl-catalog { padding: 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; display: grid; gap: 8px; }
+.dfl-pickerFilters { display: flex; flex-wrap: wrap; gap: 8px; }
+.dfl-pickerFilters > * { flex: 1 1 150px; min-width: 0; }
+.dfl-fontSearch { box-sizing: border-box; padding: 6px 10px; font: inherit; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; color: inherit; background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); }
+.dfl-btn:disabled { opacity: 0.5; cursor: default; }
+.dfl-fontSearch:focus-visible, .dfl-select:focus-visible, .dfl-btn:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; }
+
 .dfl-pickerRow {
   display: flex;
   flex-wrap: wrap;

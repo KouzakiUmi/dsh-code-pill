@@ -1,7 +1,6 @@
 var CP_FONTS = (function () {
 		var PLUGIN_ID = "dsh-code-pill-fonts";
 		var STORAGE_KEY = "dsh-code-pill.fonts.v1";
-		var FONTS_STORAGE_KEY = "dsh-font-lab/fonts";
 
 		// ── 部位槽位（高级用；变量名取自核心实际使用的排版令牌）──────────────────
 
@@ -61,43 +60,6 @@ var CP_FONTS = (function () {
 		/** 核心默认的会话正文字号（px）。 */
 		var FONT_CONTENT_DEFAULT = 14;
 
-		/** 下拉候选：按类别分组（本机已装开源字体 + 系统字体 + 通用关键字）。 */
-		var FONT_GROUPS = [
-			{
-				label: "开源中文字体候选（需确认安装）",
-				fonts: ["Sarasa UI SC", "Sarasa Term SC", "Noto Sans SC", "Noto Serif SC", "LXGW WenKai", "LXGW WenKai Mono", "LXGW Neo XiHei Screen"],
-			},
-			{ label: "开源等宽", fonts: ["Cascadia Code", "Cascadia Mono", "MesloLGS NF"] },
-			{ label: "开源西文", fonts: ["Lato"] },
-			{ label: "系统字体候选（随平台而异）", fonts: ["Microsoft YaHei UI", "Segoe UI", "Consolas", "SimSun", "SimHei", "KaiTi"] },
-			{ label: "通用关键字", fonts: ["system-ui", "ui-monospace", "sans-serif", "serif", "monospace"] },
-		];
-
-		/** 展平的候选清单（单测与去重逻辑用）。 */
-		var FONT_CHOICES = FONT_GROUPS.reduce(function (all, group) { return all.concat(group.fonts); }, []);
-
-		/** 一键方案：一次设定「全局字体 + 等宽字体」。 */
-		var PRESETS = [
-			{
-				id: "sarasa",
-				label: "更纱黑体",
-				family: "Sarasa UI SC, Noto Sans SC, system-ui, sans-serif",
-				mono: "Sarasa Term SC, Cascadia Code, ui-monospace, monospace",
-			},
-			{
-				id: "noto",
-				label: "思源黑体",
-				family: "Noto Sans SC, system-ui, sans-serif",
-				mono: "Cascadia Code, Consolas, ui-monospace, monospace",
-			},
-			{
-				id: "lxgw",
-				label: "霞鹜文楷（阅读向）",
-				family: "LXGW WenKai, Noto Serif SC, serif",
-				mono: "LXGW WenKai Mono, Cascadia Code, monospace",
-			},
-		];
-
 		/** CSS 通用族关键字与继承关键字，不能加引号。 */
 		var GENERIC = new Set([
 			"serif", "sans-serif", "monospace", "cursive", "fantasy", "system-ui",
@@ -137,26 +99,6 @@ var CP_FONTS = (function () {
 			} catch (error) {
                 loadError = '字体配置无法读取，当前使用默认值：' + error.message;
 				return normalizeState(null);
-			}
-		}
-
-		/** 读回已缓存的本机字体族（授权一次即可复用，不必每次重新授权）。 */
-		function readStoredSystemFonts() {
-			try {
-				var raw = window.localStorage.getItem(FONTS_STORAGE_KEY);
-				if (raw === null) return null;
-				var parsed = JSON.parse(raw);
-				return Array.isArray(parsed) ? Array.from(new Set(parsed.filter(function (name) { return typeof name === 'string' && name.trim() !== ''; }))).sort() : null;
-			} catch (error) {
-				return null;
-			}
-		}
-
-		function storeSystemFonts(names) {
-			try {
-				window.localStorage.setItem(FONTS_STORAGE_KEY, JSON.stringify(names));
-			} catch (error) {
-				/* 忽略：下次仍需重新授权，不影响功能 */
 			}
 		}
 
@@ -361,9 +303,8 @@ function start(store) {
 return { createStore: createStore, start: start, normalizeState: normalizeState, normalizeStack: normalizeStack, buildCss: buildCss, withVar: withVar,
  ROLE_SLOTS: ROLE_SLOTS, SIZE_SLOTS: SIZE_SLOTS, MARKDOWN_SLOTS: MARKDOWN_SLOTS,
  splitTopLevel: splitTopLevel, entryOf: entryOf, normalizeSelector: normalizeSelector,
- UI_SCALES: UI_SCALES, PRESETS: PRESETS, FONT_GROUPS: FONT_GROUPS,
- CONTENT_SIZE_MIN: CONTENT_SIZE_MIN, CONTENT_SIZE_MAX: CONTENT_SIZE_MAX, FONT_CONTENT_DEFAULT: FONT_CONTENT_DEFAULT,
- readStoredSystemFonts: readStoredSystemFonts, storeSystemFonts: storeSystemFonts };
+ UI_SCALES: UI_SCALES,
+ CONTENT_SIZE_MIN: CONTENT_SIZE_MIN, CONTENT_SIZE_MAX: CONTENT_SIZE_MAX, FONT_CONTENT_DEFAULT: FONT_CONTENT_DEFAULT };
 
 })();
 if (typeof module !== "undefined" && module.exports) module.exports.CP_FONTS = CP_FONTS;

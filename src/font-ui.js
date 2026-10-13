@@ -11,18 +11,21 @@ var splitTopLevel = CP_FONTS.splitTopLevel;
 var entryOf = CP_FONTS.entryOf;
 var normalizeSelector = CP_FONTS.normalizeSelector;
 var UI_SCALES = CP_FONTS.UI_SCALES;
-var PRESETS = CP_FONTS.PRESETS;
-var FONT_GROUPS = CP_FONTS.FONT_GROUPS;
 var CONTENT_SIZE_MIN = CP_FONTS.CONTENT_SIZE_MIN;
 var CONTENT_SIZE_MAX = CP_FONTS.CONTENT_SIZE_MAX;
 var FONT_CONTENT_DEFAULT = CP_FONTS.FONT_CONTENT_DEFAULT;
-var readStoredSystemFonts = CP_FONTS.readStoredSystemFonts;
-var storeSystemFonts = CP_FONTS.storeSystemFonts;
+var sessionFonts = [];
+        function literalFamily(family) {
+            // API family is one literal name, never a comma-separated stack.
+            if (/["\\<>{};\n\r]|\/\*|\*\//.test(family)) return '';
+            return normalizeStack('"' + family + '"');
+        }
 		/** 字体族下拉 + 「添加」/「清空」，下面是一个可手工编辑的字体栈输入框。 */
 		function FamilyPicker(props) {
 			var pickedRef = React.useState("");
 			var picked = pickedRef[0];
 			var setPicked = pickedRef[1];
+            var errorRef = React.useState('');
 
 			/** 把选中的字体族追加到字体栈末尾（已存在则不重复添加）。 */
 			var append = function (family) {
@@ -31,43 +34,50 @@ var storeSystemFonts = CP_FONTS.storeSystemFonts;
 					.map(function (raw) { return raw.trim().replace(/^["']|["']$/g, "").toLowerCase(); })
 					.filter(function (raw) { return raw !== ""; });
 				if (existing.indexOf(family.toLowerCase()) !== -1) return;
-				props.onChange(props.value ? props.value + ", " + family : family);
+				var literal = literalFamily(family);
+                if (!literal) { errorRef[1]('此族名含无法安全编码的字符，可手动填写字体栈。'); return; }
+                errorRef[1]('');
+                props.onChange(props.value ? props.value + ", " + literal : literal);
 			};
 
-			var groups = FONT_GROUPS.map(function (group) {
-				return h("optgroup", { key: group.label, label: group.label },
-					group.fonts.map(function (family) { return h("option", { key: family, value: family }, family); }));
-			});
-			if (props.systemFonts && props.systemFonts.length > 0) {
-				groups.push(h("optgroup", { key: "system", label: "本机全部字体（已读取 " + props.systemFonts.length + " 个）" },
-					props.systemFonts.map(function (family) { return h("option", { key: family, value: family }, family); })));
-			}
+            var categoryRef = React.useState(props.mono ? 'mono' : 'all');
+            var category = categoryRef[0], setCategory = categoryRef[1];
+            var searchRef = React.useState('');
+            var search = searchRef[0], setSearch = searchRef[1];
+            var available = React.useMemo(function () {
+                return CP_FONT_CATALOG.filter(props.systemFonts || [], category, search);
+            }, [props.systemFonts, category, search]);
+            var selected = available.some(function (font) { return font.family === picked; }) ? picked : '';
 
 			return h("div", { className: "dfl-picker" },
-				h("div", { className: "dfl-pickerRow" },
+				h("div", { className: "dfl-pickerFilters" },
+                    h("select", { className: "dfl-select", "aria-label": "字体分类", value: category,
+                        onChange: function (event) { setCategory(event.target.value); setPicked(''); } },
+                        CP_FONT_CATALOG.FILTERS.map(function (item) {
+                            var count = CP_FONT_CATALOG.filter(props.systemFonts || [], item.id, '').length;
+                            return h("option", { key: item.id, value: item.id }, item.label + ' · ' + count);
+                        })),
+                    h("input", { className: "dfl-fontSearch", type: "search", "aria-label": "搜索字体", placeholder: "搜索已读取的字体…", value: search,
+                        onChange: function (event) { setSearch(event.target.value); setPicked(''); } })),
+                h("div", { className: "dfl-pickerRow" },
 					h("select", {
 						className: "dfl-select", "aria-label": "选择字体",
-						value: picked,
+						value: selected, disabled: available.length === 0,
 						onChange: function (event) { setPicked(event.target.value); },
 					},
-						h("option", { value: "" }, "选择字体…"),
-						groups),
+						h("option", { value: "" }, available.length ? "选择字体…" : "无匹配字体"),
+                        available.map(function (font) { return h("option", { key: font.family, value: font.family }, font.family); })),
 					h("button", {
 						type: "button",
 						className: "dfl-btn dfl-btnPrimary",
-						onClick: function () { append(picked); setPicked(""); },
+						disabled: !selected, onClick: function () { append(selected); setPicked(""); },
 					}, "添加"),
 					h("button", {
 						type: "button",
 						className: "dfl-btn",
 						onClick: function () { props.onChange(""); },
-					}, "清空"),
-					props.compact === true ? null : h("button", {
-						type: "button",
-						className: "dfl-btn",
-						title: "读取本机已安装的全部字体族（浏览器会询问权限）",
-						onClick: props.onLoadSystemFonts,
-					}, "本机字体…")),
+					}, "清空")),
+
 				h("input", {
 					className: "dfl-input",
 					type: "text", "aria-label": props.label || props.placeholder || "字体栈",
@@ -75,7 +85,7 @@ var storeSystemFonts = CP_FONTS.storeSystemFonts;
 					placeholder: props.placeholder,
 					value: props.value,
 					onChange: function (event) { props.onChange(event.target.value); },
-				}));
+				}), errorRef[0] ? h('p', { className: 'dfl-hint', role: 'alert' }, errorRef[0]) : null);
 		}
 
 		function VarRow(props) {
@@ -101,8 +111,16 @@ var storeSystemFonts = CP_FONTS.storeSystemFonts;
 				props.hint ? h("p", { className: "dfl-hint" }, props.hint) : null);
 		}
 
+        function Fold(props) {
+            var openRef = React.useState(false);
+            var children = React.Children.toArray(props.children);
+            return h('details', { className: props.className, open: openRef[0],
+                onToggle: function (event) { openRef[1](event.currentTarget.open); } },
+                children[0], openRef[0] ? children.slice(1) : null);
+        }
+
 		function SlotGroup(props) {
-			return h("details", { className: "dfl-group" },
+			return h(Fold, { className: "dfl-group" },
 				h("summary", null, props.title, h("span", { className: "dfl-count" }, " · " + props.slots.length + " 项")),
 				h("div", { className: "dfl-rows" },
 					props.slots.map(function (slot) {
@@ -129,43 +147,43 @@ var storeSystemFonts = CP_FONTS.storeSystemFonts;
 			var copied = copiedRef[0];
 			var setCopied = copiedRef[1];
 
-			// 本机字体族：点「本机字体…」时按需读取（Local Font Access API，需要用户授权）。
-			var systemRef = React.useState(readStoredSystemFonts);
-			var systemFonts = systemRef[0];
-			var setSystemFonts = systemRef[1];
-			var fontStatusRef = React.useState("");
-			var fontStatus = fontStatusRef[0];
-			var setFontStatus = fontStatusRef[1];
-			var loadSystemFonts = function () {
-				if (typeof window.queryLocalFonts !== "function") {
-					setFontStatus("此环境不支持读取本机字体列表，可直接在输入框里填字体名。");
-					return;
-				}
-				setFontStatus("正在读取本机字体…（若浏览器弹出授权提示，请选择允许）");
-				window.queryLocalFonts().then(function (fonts) {
-                    if (!active.current) return;
-					var names = [];
-					var seen = Object.create(null);
-					(fonts || []).forEach(function (font) {
-						var family = font && font.family;
-						if (typeof family === "string" && family !== "" && seen[family] !== true) {
-							seen[family] = true;
-							names.push(family);
-						}
-					});
-					if (names.length === 0) {
-						setFontStatus("没有读到本机字体，可继续手动输入。");
-						return;
-					}
-					names.sort(function (a, b) { return a.localeCompare(b); });
-					setSystemFonts(names);
-					storeSystemFonts(names);
-					setFontStatus("已载入 " + names.length + " 个本机字体族（下次复用缓存），见下拉里的「本机全部字体」组。");
-				}, function (error) {
-                    if (!active.current) return;
-					setFontStatus("读取本机字体被拒绝（" + ((error && error.message) || "权限未授予") + "），可继续手动输入字体名。");
-				});
-			};
+            // Only the current client session's authorized enumeration is offered.
+            var systemRef = React.useState(function () { return sessionFonts; });
+            var systemFonts = systemRef[0], setSystemFonts = systemRef[1];
+            var fontStatusRef = React.useState(function () { return sessionFonts.length ? '使用本次插件会话已读取的名单；字体可能已变化，可刷新或清除。' : '尚未读取本机字体；可以手动输入字体栈。'; });
+            var fontStatus = fontStatusRef[0], setFontStatus = fontStatusRef[1];
+            var loadingRef = React.useState(false), loading = loadingRef[0], setLoading = loadingRef[1];
+            var request = React.useRef(0);
+            React.useEffect(function () { return function () { request.current++; }; }, []);
+            var loadSystemFonts = function () {
+                if (loading) return;
+                if (typeof window.queryLocalFonts !== 'function') {
+                    setFontStatus('此客户端不支持读取本机字体，仍可手动输入；不会提供假定已安装的候选。');
+                    return;
+                }
+                var id = ++request.current;
+                function cancelled() { return !active.current || id !== request.current; }
+                setLoading(true); setFontStatus('正在请求读取权限…');
+                // Call before any await to preserve transient user activation.
+                var query;
+                try { query = window.queryLocalFonts(); }
+                catch (error) { query = Promise.reject(error); }
+                Promise.resolve(query).then(function (faces) {
+                    if (cancelled()) return null;
+                    return CP_FONT_CATALOG.enumerate(faces, {
+                        cancelled: cancelled,
+                        onProgress: function (done, total) { if (!cancelled()) setFontStatus('正在识别字体能力：' + done + ' / ' + total); }
+                    });
+                }).then(function (entries) {
+                    if (cancelled() || entries === null) return;
+                    sessionFonts = entries; setSystemFonts(entries); setLoading(false);
+                    setFontStatus(entries.length ? '已读取 ' + entries.length + ' 个字体族。分类来自字体文件，不按名称推测；同一字体可属于多个类别。' : '没有读到字体，可以继续手动输入。');
+                }).catch(function (error) {
+                    if (cancelled()) return;
+                    sessionFonts = []; setSystemFonts([]); setLoading(false);
+                    setFontStatus('读取失败（' + (error.name || 'Error') + '）：' + (error.message || '权限未授予') + '。可继续手动输入。');
+                });
+            };
 
 			var css = React.useMemo(function () { return buildCss(state); }, [state]);
 
@@ -181,9 +199,6 @@ var storeSystemFonts = CP_FONTS.storeSystemFonts;
 			};
 			var onVar = function (name, patch) {
 				setState(function (current) { return withVar(current, name, patch); });
-			};
-			var applyPreset = function (preset) {
-				patchState({ master: true, globalFamily: preset.family, globalMono: preset.mono });
 			};
 			var restoreDefaults = function () {
 				patchState({ master: true, globalFamily: "", globalMono: "", uiScale: 100, contentSize: "", vars: {}, rules: [] });
@@ -228,7 +243,7 @@ var storeSystemFonts = CP_FONTS.storeSystemFonts;
 					window.navigator.clipboard.writeText(css).then(function () {
 						if (active.current) setCopied(true);
 
-					}, function () { setCopied(false); });
+					}, function () { if (active.current) setCopied(false); });
 				} catch (error) {
 					setCopied(false);
 				}
@@ -268,6 +283,16 @@ var storeSystemFonts = CP_FONTS.storeSystemFonts;
 						h("span", { className: "dfl-switchLabel" }, "启用字体覆盖")),
 					h("p", { className: "dfl-hint" }, "关闭后本插件完全不注入样式，回到 DSH 默认与官方「外观」里的字体设置。")),
 
+                h("section", { className: "dfl-catalog", "aria-label": "本机字体库" },
+                    h("div", { className: "dfl-pickerRow" },
+                        h("strong", null, "本机字体库"),
+                        h("button", { type: "button", className: "dfl-btn", disabled: loading, onClick: loadSystemFonts }, loading ? "正在读取…" : "读取 / 刷新本机字体"),
+                        h("button", { type: "button", className: "dfl-btn", onClick: function () {
+                            request.current++; sessionFonts = []; setSystemFonts([]); setLoading(false);
+                            setFontStatus('已清除本次读取的名单；已选字体配置不变。');
+                        } }, "清除已读取名单")),
+                    h("p", { className: "dfl-hint", role: "status" }, fontStatus),
+                    h("p", { className: "dfl-hint" }, "仅在点击后读取，字体文件只在本页解析，不上传、不保存字体清单。中文为常用简繁汉字抽样；等宽检测全部可打印 ASCII（含空格、标点）。仅各已枚举字面均满足时归类，差异或读取失败归入未完整识别；不保证汉字双宽或变体实例。")),
 				h("div", { className: "dfl-global" },
 					h("div", { className: "dfl-field" },
 						h("span", { className: "dfl-fieldLabel" }, "全局字体（界面与会话正文）"),
@@ -282,12 +307,13 @@ var storeSystemFonts = CP_FONTS.storeSystemFonts;
 						h("span", { className: "dfl-fieldLabel" }, "等宽字体（代码、工具输出、终端）"),
 						h(FamilyPicker, {
 							value: state.globalMono,
+                            mono: true,
 							placeholder: "留空则不覆盖；也可在下拉里选字体后点「添加」",
 							systemFonts: systemFonts,
 							onLoadSystemFonts: loadSystemFonts,
 							onChange: function (value) { patchState({ globalMono: value, master: true }); },
 						})),
-					h("p", { className: "dfl-hint", role: "status" }, store.getError() || fontStatus),
+					h("p", { className: "dfl-hint", role: "status" }, store.getError()),
 					h("p", { className: "dfl-hint" }, "这两项覆盖全部字号档位与 Markdown 各级的字体（它们默认都引用全局基座），所以日常只需要这两行。")),
 
 				h("div", { className: "dfl-scale" },
@@ -316,18 +342,10 @@ var storeSystemFonts = CP_FONTS.storeSystemFonts;
 						})),
 					h("p", { className: "dfl-hint" }, "整体缩放使用 CSS zoom 放大布局，界面文字、间距与图标一起放大；并非浏览器缩放，具体弹窗布局需按宿主核验。会话正文另有独立字号，也可用官方「外观 → 字号大小」。都是点一下即时生效。")),
 
-				h("div", { className: "dfl-presets" },
-					PRESETS.map(function (preset) {
-						return h("button", {
-							key: preset.id,
-							type: "button",
-							className: "dfl-btn dfl-btnPrimary",
-							onClick: function () { applyPreset(preset); },
-						}, preset.label);
-					}),
-					h("button", { type: "button", className: "dfl-btn", onClick: restoreDefaults }, "恢复 DSH 默认")),
+                h("div", { className: "dfl-actions" },
+                    h("button", { type: "button", className: "dfl-btn", onClick: restoreDefaults }, "清除字体、字号与缩放设置")),
 
-				h("details", { className: "dfl-group" },
+				h(Fold, { className: "dfl-group" },
 					h("summary", null, "高级：逐部位微调",
 						h("span", { className: "dfl-count" }, " · " + (ROLE_SLOTS.length + SIZE_SLOTS.length + MARKDOWN_SLOTS.length) + " 个槽位"
 							+ (advancedVarCount + advancedRuleCount > 0 ? "，已启用 " + advancedVarCount + " 槽位 / " + advancedRuleCount + " 规则" : ""))),
@@ -348,7 +366,7 @@ var storeSystemFonts = CP_FONTS.storeSystemFonts;
 						})),
 					h(SlotGroup, { title: "字号档位", slots: SIZE_SLOTS, state: state, onVar: onVar, systemFonts: systemFonts, onLoadSystemFonts: loadSystemFonts }),
 					h(SlotGroup, { title: "Markdown 各级", slots: MARKDOWN_SLOTS, state: state, onVar: onVar, systemFonts: systemFonts, onLoadSystemFonts: loadSystemFonts }),
-					h("details", { className: "dfl-group" },
+					h(Fold, { className: "dfl-group" },
 						h("summary", null, "自定义选择器规则", h("span", { className: "dfl-count" }, " · " + (state.rules || []).length + " 条")),
 						h("div", { className: "dfl-rows" },
 							(state.rules || []).map(function (rule) {
@@ -385,7 +403,7 @@ var storeSystemFonts = CP_FONTS.storeSystemFonts;
 							h("button", { type: "button", className: "dfl-btn", onClick: addRule }, "+ 添加规则"),
 							h("p", { className: "dfl-hint" }, "规则会在选中元素上强制 font-family（!important），适合覆盖变量够不到的具体面板。")))),
 
-				h("details", { className: "dfl-group" },
+				h(Fold, { className: "dfl-group" },
 					h("summary", null, "导出 / 固化"),
 					h("div", { className: "dfl-rows" },
 						h("p", { className: "dfl-hint" }, "下面是当前生效的 CSS。想脱离本插件固化，可把等价设置写进 profile patch 的 ui-theme 条目（textFontFamily / codeFontFamily / terminalFontFamily），或放进任意自定义 CSS 注入点。"),

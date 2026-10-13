@@ -1,6 +1,6 @@
 # 开发与验证
 
-本文描述 **0.3.0** 的源码与交付流程，npm `0.2.0` 不包含这些新增功能；实际发布状态以 registry 和 GitHub Release 为准。包版本字段见 [package.json](../package.json)；产品约定见 [DESIGN.md](../DESIGN.md)，验证边界见 [兼容性说明](compatibility.md)。
+本文描述 **0.4.0** 的源码与交付流程，npm `0.2.0` 不包含这些新增功能；实际发布状态以 registry 和 GitHub Release 为准。包版本字段见 [package.json](../package.json)；产品约定见 [DESIGN.md](../DESIGN.md)，验证边界见 [兼容性说明](compatibility.md)。
 
 ## 环境与完整自检
 
@@ -17,6 +17,7 @@ node scripts/check-docs.mjs
 node tests/tokenizer.test.mjs
 node tests/settings.test.mjs
 node tests/fonts.test.mjs
+node tests/font-catalog.test.mjs
 node tests/client-smoke.test.mjs
 node tests/browser-render.test.mjs
 node tests/dynamic-render.test.mjs
@@ -54,6 +55,7 @@ node tests/client-smoke.test.mjs <目标安装的 cordis/lib/index.js 绝对路�
 src/settings-core.cjs ──┬── CSS 变量生成 / 配置校验 / 预览 / 对比度审计
                        ├── src/settings-ui.js（草稿与浏览器存储）
                        └── scripts/color-audit.mjs、tests/settings.test.mjs
+src/font-catalog.cjs ─────── 客户端授权字体枚举 / SFNT 能力分类 / 筛选
 src/font-core.cjs ────────── 字体配置 / CSS / 外部状态库 / 旧配置读取
 src/font-ui.js ───────────── 字体 Tab 与逐部位配置
 src/font-styles.css ──────── 字体面板与双 Tab 布局
@@ -83,7 +85,7 @@ lib/index.js ─────────────── host 空操作
 
 ## CI 与发布不是同一操作
 
-[ci.yml](../.github/workflows/ci.yml) 在 **main 推送与 PR** 上执行 Node 24 安装、构建、语法与 manifest 检查、全部七项测试、色板审计和打包。构建后使用 `git diff --exit-code -- lib/client.js` 检查提交产物是否漂移；成功后上传 `verified-package` artifact（`dist/`）。**main 推送或 PR 不会发布 npm，也不会创建 GitHub Release。**
+[ci.yml](../.github/workflows/ci.yml) 在 **main 推送与 PR** 上执行 Node 24 安装、构建、语法与 manifest 检查、全部八项测试、色板审计和打包。构建后使用 `git diff --exit-code -- lib/client.js` 检查提交产物是否漂移；成功后上传 `verified-package` artifact（`dist/`）。**main 推送或 PR 不会发布 npm，也不会创建 GitHub Release。**
 
 [release.yml](../.github/workflows/release.yml) 由 `v*` 标签触发；手动恢复也必须选择标签 ref。verify job 要求标签精确等于包版本前加 `v`，重复完整验证并上传 `release-package`。npm 与 GitHub jobs 都使用这个已验证 tarball，而非重新打包。
 
