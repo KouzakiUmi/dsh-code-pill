@@ -24,9 +24,20 @@ window.__ModuleLoader__.load({
 
 		/* __SETTINGS_UI__ */
 
+		/* __PATH_RENDERER__ */
+
 		var PLUGIN_ID = "dsh-code-pill";
 		var HIGHLIGHT_KEYS = ["kwc", "kwd", "str", "com", "num", "fn", "typ", "cst", "prm"];
+		// 配置文件类徽章使用独立图标形状（styles.css 的 [data-dshcp-icon="config"]）。
 		var CONFIG_BADGES = new Set(["JSON", "YAML", "TOML", "INI", "ENV", "CFG", "PROPS"]);
+		// 宿主把 read/write/edit 工具行的文件路径渲染成行摘要（按钮/文本），
+		// 不是 <code>：只有行根同时带 data-tool 与 data-variant，才认作工具行。
+		var TOOL_PATH_VARIANTS = new Set(["read", "write", "edit"]);
+
+		/** 徽章 → 图标类别；渲染层与设置页预览共用，避免两处各写一份判断。 */
+		function badgeIconKind(badge) {
+			return badge !== null && CONFIG_BADGES.has(badge) ? "config" : "file";
+		}
 
 		function injectStyles() {
 			var previous = document.querySelector('style[data-plugin-css="' + PLUGIN_ID + '"]');
@@ -53,6 +64,9 @@ window.__ModuleLoader__.load({
 			var codeRanges = new Map();
 			var decorated = new Set();
 			var snapshots = new Map();
+			var codeClasses = new WeakMap();
+			// 工具行路径：待扫描的行根与已装饰的路径宿主。
+			var paths = createPathRenderer(root, function () { return config; });
 			var scheduled = false;
 			var rafId = 0;
 			var config;
@@ -91,6 +105,7 @@ window.__ModuleLoader__.load({
 				delete code.dataset.dshcpBadge;
 				delete code.dataset.dshcpIcon;
 				code.classList.remove("dshcp-pill");
+				codeClasses.set(code, code.getAttribute("class"));
 			}
 
 			function eligible(code) {
@@ -122,6 +137,7 @@ window.__ModuleLoader__.load({
 				code.dataset.dshcpText = text;
 				snapshots.set(code, { text: text, node: node, childCount: code.childNodes.length });
 				code.classList.add("dshcp-pill");
+				codeClasses.set(code, code.getAttribute("class"));
 				decorated.add(code);
 				var inline = detectInlineContext(text);
 				var marker = config.marker;
@@ -129,7 +145,7 @@ window.__ModuleLoader__.load({
 					code.dataset.dshcpBadge = inline.badge;
 				} else delete code.dataset.dshcpBadge;
 				if ((marker === "icon" || marker === "both") && inline.badge !== null) {
-					code.dataset.dshcpIcon = CONFIG_BADGES.has(inline.badge) ? "config" : "file";
+					code.dataset.dshcpIcon = badgeIconKind(inline.badge);
 				} else delete code.dataset.dshcpIcon;
 				var ranges = emptyRanges();
 				// 先登记，保证失败后的 partial Range 仍可完整摘除。
@@ -153,7 +169,7 @@ window.__ModuleLoader__.load({
 			}
 
 			function schedule() {
-				if (disposed || scheduled || pending.size === 0) return;
+				if (disposed || scheduled || (pending.size === 0 && !paths.hasPending())) return;
 				scheduled = true;
 				rafId = requestAnimationFrame(function () {
 					scheduled = false;
@@ -161,6 +177,7 @@ window.__ModuleLoader__.load({
 					var batch = Array.from(pending);
 					pending.clear();
 					for (var code of batch) process(code);
+					paths.flush();
 				});
 			}
 
@@ -171,7 +188,20 @@ window.__ModuleLoader__.load({
 			}
 
 			var observer = new MutationObserver(function (mutations) {
+				paths.beginBatch();
 				for (var m of mutations) {
+					if (m.type === "attributes" && m.attributeName === "class") {
+						var hostClasses = function (value) { return (value || "").split(/\s+/).filter(function (c) { return c && c !== "dshcp-pill" && c !== "dshcp-tool-path"; }).sort().join(" "); };
+						if (hostClasses(m.oldValue) === hostClasses(m.target.getAttribute("class")) && paths.isOwnClass(m.target)) continue;
+						// 行内管线只写插件 class，结构/文本变化另有队列。
+						if (m.target.tagName === "CODE" && codeClasses.has(m.target) && codeClasses.get(m.target) === m.target.getAttribute("class") && hostClasses(m.oldValue) === hostClasses(m.target.getAttribute("class"))) continue;
+					}
+					paths.queue(m.target);
+					if (m.type === "attributes") {
+						if (m.attributeName === "data-dshcp-preview") visitCodes(m.target, function (code) { queue(code, true); });
+						if (m.attributeName === "class" && m.target.tagName === "CODE") queue(m.target, true);
+						continue;
+					}
 					if (m.type === "characterData") {
 						var parent = m.target.parentElement;
 						var owner = parent !== null ? parent.closest("code") : null;
@@ -179,8 +209,14 @@ window.__ModuleLoader__.load({
 					} else if (m.type === "childList") {
 						var changedCode = m.target.closest !== undefined ? m.target.closest("code") : null;
 						if (changedCode !== null) queue(changedCode, true);
-						for (var node of m.removedNodes) visitCodes(node, cleanupCode);
-						for (var added of m.addedNodes) visitCodes(added, function (code) { queue(code, true); });
+						for (var node of m.removedNodes) {
+							visitCodes(node, cleanupCode);
+							paths.queue(node);
+						}
+						for (var added of m.addedNodes) {
+							visitCodes(added, function (code) { queue(code, true); });
+							paths.queue(added);
+						}
 					}
 				}
 				schedule();
@@ -188,7 +224,9 @@ window.__ModuleLoader__.load({
 
 			function configure() {
 				if (disposed) return;
-				var next = store && typeof store.getSnapshot === "function" ? store.getSnapshot() : null;
+				// 无设置 store（宿主未提供设置层）时传 undefined：normalize 回落到默认配置，
+				// 不能传 null——那会被当成非法输入抛错并中断订阅回调。
+				var next = store && typeof store.getSnapshot === "function" ? store.getSnapshot() : undefined;
 				config = typeof CP_SETTINGS !== "undefined" ? CP_SETTINGS.normalize(next)
 					: { syntax: true, marker: "label" };
 				style.textContent = CSS_TEXT + "\n" + (typeof CP_SETTINGS !== "undefined" ? CP_SETTINGS.css(config) : "");
@@ -198,11 +236,13 @@ window.__ModuleLoader__.load({
 					if (!eligible(code)) cleanupCode(code);
 				}
 				for (var initial of root.querySelectorAll("code")) queue(initial, true);
+				paths.configure();
 				schedule();
 			}
 
 			configure();
-			observer.observe(root, { childList: true, characterData: true, subtree: true });
+			observer.observe(root, { childList: true, characterData: true, subtree: true, attributes: true, attributeOldValue: true,
+				attributeFilter: ["class", "contenteditable", "data-dshcp-preview", "data-message-attachments", "data-disclosure-row", "data-code-block-banner", "data-ref-chip", "data-tool", "data-variant", "data-state", "data-chat-flow", "data-chat-flow-kind", "data-search", "data-read", "data-diff", "data-terminal", "data-path-label", "title", "href"] });
 			if (store && typeof store.subscribe === "function") off = store.subscribe(configure);
 
 			return function () {
@@ -212,6 +252,7 @@ window.__ModuleLoader__.load({
 				observer.disconnect();
 				if (rafId) cancelAnimationFrame(rafId);
 				pending.clear();
+				paths.dispose();
 				for (var code of Array.from(decorated)) cleanupCode(code);
 				snapshots.clear();
 				style.remove();

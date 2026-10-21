@@ -5,6 +5,7 @@
 Code Pill 用于 DSH 对话中的行内代码：薄背景、克制的语法色、可选文件标记。
 设置页注册到宿主 `settings.section`，不建立独立服务器，不向消息插入交互按钮。
 0.3.0 增加六套深浅配对预设、自定义颜色、文件标记、排版参数、代码块颜色与配置导入导出，并将 Font Lab 接入第二个「字体」Tab。字体即时应用，代码外观保留草稿和显式保存，两者独立存储与清理。
+工具调用行（读取／写入／编辑）里的文件路径也渲染成胶囊：宿主把路径渲染成行摘要而不是行内代码，行内代码管线看不到它，插件按宿主自己的行标记识别并单独装饰。
 
 ## 2. 核心约束
 
@@ -35,6 +36,24 @@ fn/typ/cst/prm 并入 plain：行内表达式不是完整编辑器，不必把�
 徽章使用独立的实色背景与文字色，避免叠层背景使审计失真。
 文件检测支持常用扩展名、特殊 basename、Windows 分隔符与中文路径；有空白的路径仍保守降级。
 
+### 3.1 聊天文件路径
+
+路径渲染独立在 `src/path-renderer.js`：展示位置适配器返回元素、路径和种类，共用装饰与对账清理；行内代码保留独立语法管线。
+
+| 展示位置 | 识别边界 |
+| --- | --- |
+| 工具摘要 | `data-tool` + `data-variant`，只处理 read/write/edit 变体行头里的 fileLink/summary |
+| 正文文件引用 | 聊天流内宿主 fileMention 按钮，排除技能引用、附件与工具卡片 |
+| 搜索路径 | `data-search=paths` 的路径行及 `data-search=matches` 的文件名；不处理匹配内容和行号 |
+| 读取标题 | `data-read` 内代码栏的 title；不重复已有语言标签 |
+| 路径标签 | 聊天流内 `data-path-label`，从完整 title 取路径，保留宿主截断结构 |
+
+除工具摘要外必须处于 `data-chat-flow` 内，预览、可编辑区域、附件和 pre 排除。没有语义标记的部分采用已核实的 CSS-module 局部名后缀回退；不依赖哈希前缀，但宿主改局部名仍可能漏染，需要版本回归。未知结构不扫描全文猜测。图片预览引用若缺少可信路径 title，保留宿主外观，不根据任意链接别名推断路径或徽章。
+
+明确的文件容器允许含空格、未知扩展名和长路径；路径身份与语言徽章分离，徽章只取 basename/扩展名。缺少语义保证的文本仍用保守形状判断。路径单色，不拆分语法色。
+
+配置键沿用 `toolPath`（默认开启），界面显示“聊天文件路径”，关闭时撤销上述所有路径装饰。终端命令、ANSI 输出、diff 增删色和读取正文继续由宿主负责。
+
 ## 4. 设置数据
 
 浏览器 key 为 `dsh-code-pill.settings.v1`；配置 `version: 1`。
@@ -47,6 +66,7 @@ fn/typ/cst/prm 并入 plain：行内表达式不是完整编辑器，不必把�
 | preset | amber/readable/cool/editor/contrast/minimal/custom |
 | syntax | 行内语法着色布尔开关 |
 | marker | off/label/icon/both |
+| toolPath | 聊天文件路径胶囊布尔开关，默认开启 |
 | fontScale | 0.8–1.1，相对正文 em |
 | radius | 0–10px |
 | padding | 水平 0–0.6em |
@@ -94,6 +114,10 @@ MutationObserver 监听 childList 与 characterData，受影响的 code 入 Set�
 无 Highlight API：pill + 文件标记，不染 token。非单文本节点：安全退化为 plain。
 高对比 forced-colors 由系统接管色彩；不强制保留自定义 RGB。
 
+路径渲染优先以聊天流内的消息边界（`data-chat-flow-kind`）为 owner，回退到聊天流或独立工具行，保存 owner → 已装饰目标的映射。嵌套边界只拥有归属于自己的目标。
+文本、子节点及相关语义属性变化将 owner 入队，RAF 先完成整批旧归属清理，再统一应用新装饰，避免跨容器移动互相撤销。稳定目标按路径、种类与标记模式差量写入；失效、移出聊天、断开连接和卸载时撤销装饰。观察器区分宿主与插件自身的 class 写入，不监听插件装饰 data，避免自触发循环。工具失败／停止摘要保留宿主状态色。
+只修改 class/data，保留宿主子节点、点击处理、焦点边框和阴影。
+
 ## 7. 设置页集成
 
 复用宿主 React 和 `@deepseek-ai/dsh-client-ui-primitives` 的 Button、Switch、Input。
@@ -113,6 +137,7 @@ MutationObserver 监听 childList 与 characterData，受影响的 code 入 Set�
 - `node tests/browser-render.test.mjs`：真实 Chromium 颜色、徽章、主题与卸载。
 - `node tests/dynamic-render.test.mjs`：流式节点替换、区域迁移、配置更新与降级。
 - `node tests/settings-browser.test.mjs`：真实 React 草稿、保存、开关、导入、窄屏与清理；宿主控件是结构测试替身，非宿主整体截图验证。
+- `node tests/tool-path.test.mjs`：宿主工具行路径胶囊、徽章模式、开关与清理；测试页复刻宿主的行标记，不是宿主整页截图验证。
 - `node scripts/color-audit.mjs`：六套默认预设配对主题审计。
 
 源码修改后运行 build 更新 lib/client.js。构建不安装，不更新 Profile，不执行 Git 发布。

@@ -1,17 +1,25 @@
 /* All palette values are generated from settings-core.cjs, the sole colour source. */
-html body code.dshcp-pill {
+/* 胶囊外观：行内 <code> 与宿主工具行里的文件路径共用同一套几何与色板变量。 */
+html body :is(code.dshcp-pill, .dshcp-tool-path) {
   color: var(--dshcp-plain) !important;
   background: var(--dshcp-bg) !important;
-  border: none !important;
-  box-shadow: none !important;
   border-radius: var(--dshcp-radius) !important;
   padding: 0.08em var(--dshcp-padding) !important;
-  font-size: var(--dshcp-font-scale) !important;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }
-code.dshcp-pill[data-dshcp-badge]:not([data-dshcp-icon])::before,
-code.dshcp-pill[data-dshcp-badge][data-dshcp-icon]::after {
+/* 行内代码按插件比例缩放；工具行路径保留宿主的次级字号。 */
+html body code.dshcp-pill {
+  font-size: var(--dshcp-font-scale) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+/* 工具行路径是宿主给文件链接的虚线下划线，胶囊本身已经是可点击提示。 */
+html body .dshcp-tool-path { text-decoration: none !important; }
+/* PathLabel 的目录/文件名子 span 原有独立颜色；只在该明确容器内统一。 */
+html body [data-path-label].dshcp-tool-path span { color: inherit !important; }
+:is(code.dshcp-pill, .dshcp-tool-path)[data-dshcp-badge]:not([data-dshcp-icon])::before,
+:is(code.dshcp-pill, .dshcp-tool-path)[data-dshcp-badge][data-dshcp-icon]::after {
   content: attr(data-dshcp-badge);
   font-size: 0.78em;
   font-weight: 650;
@@ -24,9 +32,9 @@ code.dshcp-pill[data-dshcp-badge][data-dshcp-icon]::after {
   color: var(--dshcp-badge-text);
   user-select: none;
 }
-code.dshcp-pill[data-dshcp-badge]:not([data-dshcp-icon])::before { margin-right: 0.4em; }
-code.dshcp-pill[data-dshcp-badge][data-dshcp-icon]::after { margin-left: 0.4em; }
-code.dshcp-pill[data-dshcp-icon]::before {
+:is(code.dshcp-pill, .dshcp-tool-path)[data-dshcp-badge]:not([data-dshcp-icon])::before { margin-right: 0.4em; }
+:is(code.dshcp-pill, .dshcp-tool-path)[data-dshcp-badge][data-dshcp-icon]::after { margin-left: 0.4em; }
+:is(code.dshcp-pill, .dshcp-tool-path)[data-dshcp-icon]::before {
   content: '';
   display: inline-block;
   width: 0.9em;
@@ -35,6 +43,10 @@ code.dshcp-pill[data-dshcp-icon]::before {
   vertical-align: -0.12em;
   background: currentColor;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='black' stroke-width='1.4' stroke-linejoin='round' d='M3 1.5h6l4 4v9H3z M9 1.5v4h4 M5.5 8h5 M5.5 10.5h5'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+/* 配置文件类（JSON/YAML/TOML/INI/ENV/CFG/PROPS）用滑块形状，区别于普通文件图标。 */
+:is(code.dshcp-pill, .dshcp-tool-path)[data-dshcp-icon="config"]::before {
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' d='M2.5 5.5h11M2.5 10.5h11'/%3E%3Ccircle cx='6' cy='5.5' r='1.9' fill='black'/%3E%3Ccircle cx='10' cy='10.5' r='1.9' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 ::highlight(dshcp-kwc) { color: var(--dshcp-kwc); }
 ::highlight(dshcp-kwd) { color: var(--dshcp-kwd); }
@@ -90,4 +102,4 @@ code.dshcp-pill[data-dshcp-icon]::before {
 .dshcp-settings-toolbar { padding: 12px; margin-bottom: 14px; background: var(--dsw-alias-bg-layer-1, Canvas); border: 1px solid var(--dsw-alias-border-l4, #8883); border-radius: 8px; flex-wrap: wrap; }
 .dshcp-settings :focus-visible { outline: 2px solid var(--dsw-alias-brand-primary, #916200); outline-offset: 3px; }
 @media (max-width: 480px) { .dshcp-preset-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .dshcp-panel { padding: 12px; } .dshcp-slider-grid { grid-template-columns: 1fr; } .dshcp-settings-header { align-items: flex-start; } }
-@media (forced-colors: active) { code.dshcp-pill { outline: 1px solid CanvasText; } .dshcp-preset[aria-pressed='true'] { outline: 2px solid Highlight; } }
+@media (forced-colors: active) { code.dshcp-pill, .dshcp-tool-path { outline: 1px solid CanvasText; } .dshcp-preset[aria-pressed='true'] { outline: 2px solid Highlight; } }

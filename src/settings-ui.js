@@ -65,6 +65,8 @@ function installSettings(ctx, store, fontStore) {
   }
   var h = React.createElement;
   var colorNames = { plain: '默认文字', kwc: '控制流', kwd: '声明与类型', str: '字符串', com: '注释', num: '数字', bg: '胶囊底色', badgeBg: '徽章底色', badgeText: '徽章文字' };
+  // 显示名以 MARKERS 的取值为键，顺序由单一事实源决定。
+  var markerNames = { off: '关闭', label: '语言文字', icon: '小图标', both: '图标＋文字' };
   function tokenText(text, config, theme) {
     var toks = config.syntax ? tokenizeRanges(text, false) : [];
     var nodes = [], position = 0;
@@ -83,7 +85,7 @@ function installSettings(ctx, store, fontStore) {
     function code(text, badge, syntax) {
       var attributes = { className: 'dshcp-pill' };
       if (badge && (cfg.marker === 'label' || cfg.marker === 'both')) attributes['data-dshcp-badge'] = badge;
-      if (badge && (cfg.marker === 'icon' || cfg.marker === 'both')) attributes['data-dshcp-icon'] = 'file';
+      if (badge && (cfg.marker === 'icon' || cfg.marker === 'both')) attributes['data-dshcp-icon'] = badgeIconKind(badge);
       return h('code', attributes, syntax ? tokenText(text, cfg, theme) : text);
     }
     var blockStyle = cfg.blockTheme === 'preset' ? { color: cfg[theme].plain } : {};
@@ -140,7 +142,8 @@ function installSettings(ctx, store, fontStore) {
         warnings.length ? h('p', { className: 'dshcp-warning', role: 'status' }, '低对比度提醒：', warnings.map(function (item) { return (colorNames[item.role] || item.role) + ' ' + item.ratio.toFixed(2) + ':1'; }).join('；'), '。仍可保存。') : h('p', { className: 'dshcp-hint' }, '当前预览背景下，全部文字达到 4.5:1。实际会话背景可能不同。')),
       h('section', { className: 'dshcp-panel' }, h('h3', null, '显示与排版'),
         h('div', { className: 'dshcp-control-row' }, h('div', null, h('strong', null, '行内语法着色'), h('small', null, '关闭后保留统一文字颜色')), h(ui.Switch, { checked: draft.syntax, label: '行内语法着色', onChange: function (value) { change('syntax', value); } })),
-        h('label', { className: 'dshcp-control-row' }, h('span', null, '文件标记'), h('select', { 'aria-label': '文件标记', value: draft.marker, onChange: function (event) { change('marker', event.target.value); } }, ['off', 'label', 'icon', 'both'].map(function (mode, index) { return h('option', { value: mode, key: mode }, ['关闭', '语言文字', '小图标', '图标＋文字'][index]); }))),
+        h('div', { className: 'dshcp-control-row' }, h('div', null, h('strong', null, '聊天文件路径'), h('small', null, '统一工具摘要、正文文件引用、搜索结果与读取标题的路径外观')), h(ui.Switch, { checked: draft.toolPath, label: '聊天文件路径', onChange: function (value) { change('toolPath', value); } })),
+        h('label', { className: 'dshcp-control-row' }, h('span', null, '文件标记'), h('select', { 'aria-label': '文件标记', value: draft.marker, onChange: function (event) { change('marker', event.target.value); } }, CP_SETTINGS.MARKERS.map(function (mode) { return h('option', { value: mode, key: mode }, markerNames[mode]); }))),
         h('div', { className: 'dshcp-slider-grid' }, range('字号比例', 'fontScale', .8, 1.1, .01, '×'), range('圆角', 'radius', 0, 10, 1, 'px'), range('水平内边距', 'padding', 0, .6, .01, 'em'), range('底色强度', 'bgOpacity', 0, .2, .005, '')),
         h('label', { className: 'dshcp-control-row' }, h('span', null, '代码块颜色'), h('select', { 'aria-label': '代码块颜色', value: draft.blockTheme, onChange: function (event) { change('blockTheme', event.target.value); } }, h('option', { value: 'host' }, '保留宿主配色'), h('option', { value: 'preset' }, '使用当前色板')))),
       h('details', { className: 'dshcp-panel' }, h('summary', null, '导入／导出配置'), h('p', { className: 'dshcp-hint' }, '仅导出 Code Pill 外观配置，不包含聊天内容。导入先进入草稿。'),

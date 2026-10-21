@@ -1,6 +1,6 @@
 # 兼容性与权限边界
 
-本文针对 **0.3.0** 的代码。新增六套预设、自定义色板、双 Tab 设置页、图标、字体及持久化能力不属于 npm `0.2.0`；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
+本文针对 **0.5.0** 的代码。六套预设、自定义色板、双 Tab 设置页、图标、字体与持久化能力自 `0.3.0` 起提供，字体能力分类与搜索自 `0.4.0` 起提供；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
 
 ## 已知证据，不扩大结论
 
@@ -13,11 +13,13 @@
 | Cordis 生命周期 | 已使用本机实际安装的 Cordis 入口运行 [client-smoke.test.mjs](../tests/client-smoke.test.mjs)，真实 fiber 加载与卸载检查通过；DOM 为最小桩 | 此测试覆盖真实 settings.section、宿主所有服务、热更新的全部现场行为 |
 | 当前 DSH 安装 | 上述现场验证使用本地未发布的工作区包；通过桌面配套 CLI 更新 desktop 的插件来源与 lockfile，未修改宿主安装代码、未手改 Profile 配置；验证页临时外观已恢复 | npm 包已发布；其他 Profile 已部署；所有客户端缓存均已刷新 |
 
-上述证据来自 2026-10-12 的本地工作区验收，不代表已发布到 npm，也不把基础设置已推送 main 与正式发版混为一谈。npm `0.2.0` 不包含这些新增功能。
+上述证据来自 2026-10-12 的本地工作区验收，不等于对已发布包在每个宿主环境上的重新验证；这些能力自 `0.3.0` 起随 npm 与 GitHub Release 发布；当前版本和 dist-tag 以 npm registry 为准。
 
 桌面应用壳版本不等于 Core 版本。实际 Core 导出契约和 UI 模块应按目标环境核验；其他 Core 版本保持“未知”，不把历史声明升级为全面兼容保证。包声明 Node `>=18`，开发/CI 使用 Node 24，未建立各 Node 版本的完整测试矩阵。
 
-本次 Font Lab 合并尚未安装到生产 Profile。双 Tab、字体 CSS、字号／缩放保留、跨窗口同步、存储失败与卸载在隔离 Chrome + React 测试中验证；字体族读取授权、生产终端与 CSS zoom 弹窗仍需现场验收，不能沿用上面的历史验收作为合并版本已部署的证据。
+Font Lab 合并版本的浏览器内行为已由隔离 Chrome + React 测试覆盖；字体族读取授权、生产终端与 CSS zoom 弹窗仍缺现场验收证据，不能据此宣称已在所有宿主或其余 Profile 部署。
+
+聊天路径适配（0.5.0）基于本地宿主源码结构，已在隔离 Chrome 中验证路径、点击保持、动态归属、配置与卸载；未进行真实宿主整页验收。少量 CSS-module 局部名回退仍需随宿主升级回归。
 
 ## 宿主能力与降级
 

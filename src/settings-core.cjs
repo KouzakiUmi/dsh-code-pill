@@ -13,7 +13,7 @@
  * 低对比，由 CP_SETTINGS.audit 输出 pass/false 供设置页警告。
  *
  * 配置形状（version 1）：
- *   { version, preset, syntax, marker, fontScale, radius, padding,
+ *   { version, preset, syntax, marker, toolPath, fontScale, radius, padding,
  *     bgOpacity, blockTheme, light: {palette}, dark: {palette} }
  * light / dark 直接是 palette 对象（不再包一层 palette 键）。
  */
@@ -27,7 +27,7 @@ var MARKERS = ['off', 'label', 'icon', 'both'];
 /** 代码块主题：host 沿用宿主 shiki / preset 由色板生成 shiki 变量。 */
 var BLOCK_THEMES = ['host', 'preset'];
 
-var CONFIG_KEYS = ['version', 'preset', 'syntax', 'marker', 'fontScale', 'radius', 'padding', 'bgOpacity', 'blockTheme', 'light', 'dark'];
+var CONFIG_KEYS = ['version', 'preset', 'syntax', 'marker', 'toolPath', 'fontScale', 'radius', 'padding', 'bgOpacity', 'blockTheme', 'light', 'dark'];
 
 /** 6 个独立语法角色（fn/typ/cst/prm 渲染层继承 plain，见 DESIGN.md §3）。 */
 var ROLE_KEYS = ['plain', 'kwc', 'kwd', 'str', 'com', 'num'];
@@ -267,6 +267,7 @@ function defaults() {
     preset: 'amber',
     syntax: true,
     marker: 'label',
+    toolPath: true,
     fontScale: 0.94,
     radius: 4,
     padding: 0.25,
@@ -321,6 +322,10 @@ function normalize(input) {
     out.syntax = input.syntax;
   }
   if (input.marker !== undefined) out.marker = assertEnum(input.marker, MARKERS, 'marker');
+  if (input.toolPath !== undefined) {
+    if (typeof input.toolPath !== 'boolean') throw new Error('dsh-code-pill settings: toolPath must be boolean');
+    out.toolPath = input.toolPath;
+  }
   if (input.blockTheme !== undefined) out.blockTheme = assertEnum(input.blockTheme, BLOCK_THEMES, 'blockTheme');
   if (input.fontScale !== undefined) out.fontScale = assertNumber(input.fontScale, 0.8, 1.1, 'fontScale');
   if (input.radius !== undefined) out.radius = assertNumber(input.radius, 0, 10, 'radius');

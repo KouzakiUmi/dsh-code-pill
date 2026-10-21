@@ -10,7 +10,7 @@ import { createRequire } from 'node:module'
 import assert from 'node:assert/strict'
 
 const require = createRequire(import.meta.url)
-const { tokenizeRanges, detectBadge, detectCommand, detectInlineMode, detectInlineContext } = require('../src/tokenizer.cjs')
+const { tokenizeRanges, detectBadge, detectCommand, detectInlineMode, detectInlineContext, detectPathLike } = require('../src/tokenizer.cjs')
 
 /** 断言 src 的着色类别序列（按出现顺序）等于 expected。 */
 function assertClasses(src, expected, options = {}) {
@@ -228,5 +228,29 @@ test('inline context: mode always agrees with detectInlineMode', () => {
   for (const text of ['x = 1', 'README.md', 'pnpm install', 'obj.type', 'https://example.com', 'Set.has', '# comment']) {
     assert.equal(detectInlineContext(text).mode, detectInlineMode(text), text)
   }
+})
+
+// ---- detectPathLike：宿主工具行摘要里的文件路径 ----
+test('path like: file names and relative paths are paths', () => {
+  for (const text of ['scripts/test-host.mjs', 'lib/service-control.js', 'docs/settings.md', 'package.json', 'Dockerfile', 'src\\font-core.cjs', '配置/settings.json']) {
+    assert.equal(detectPathLike(text), true, text)
+  }
+})
+
+test('path like: absolute unknown-extension paths and line references', () => {
+  for (const text of ['/tmp/output.custom', 'C:/work/output.custom', 'C:\\work\\output.custom', '//server/share/output.custom', 'src/main.ts#L24-L30']) {
+    assert.equal(detectPathLike(text), true, text)
+  }
+})
+
+test('path like: urls, commands and plain words are not paths', () => {
+  for (const text of ['https://example.com/a.js', 'git status', '1KB', '+1', '-1', '按实测导入预算验收进程内正常关闭', 'Considering JSON formatting', 'bash-dca241fdfc88427a', '']) {
+    assert.equal(detectPathLike(text), false, text)
+  }
+})
+
+test('path like: whitespace and oversized text are rejected', () => {
+  assert.equal(detectPathLike('src/tokenizer cjs'), false)
+  assert.equal(detectPathLike('a/'.repeat(120) + 'x.js'), false)
 })
 console.log(`dsh-code-pill tokenizer: ${passed} tests passed`)

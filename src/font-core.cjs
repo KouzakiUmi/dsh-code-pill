@@ -88,17 +88,16 @@ var CP_FONTS = (function () {
 			};
 		}
 
-        var loadError = '';
-		/** 读取持久化状态（损坏或缺失时回退为默认状态并反馈）。 */
+		/** 读取持久化状态（损坏或缺失时回退为默认状态并反馈）。
+		 *  错误随结果一起返回，不写模块级共享变量——避免多个 store 实例互相覆盖。 */
 		function loadState() {
 			try {
 				var raw = window.localStorage.getItem(STORAGE_KEY);
 				if (raw === null) raw = window.localStorage.getItem("dsh-font-lab/v1");
-				if (raw === null) return normalizeState(null);
-				return normalizeState(JSON.parse(raw));
+				if (raw === null) return { state: normalizeState(null), error: "" };
+				return { state: normalizeState(JSON.parse(raw)), error: "" };
 			} catch (error) {
-                loadError = '字体配置无法读取，当前使用默认值：' + error.message;
-				return normalizeState(null);
+				return { state: normalizeState(null), error: '字体配置无法读取，当前使用默认值：' + error.message };
 			}
 		}
 
@@ -270,8 +269,7 @@ var CP_FONTS = (function () {
 
 
 function createStore() {
-  loadError = '';
-  var current = loadState(), listeners = new Set(), error = loadError;
+  var loaded = loadState(), current = loaded.state, listeners = new Set(), error = loaded.error;
   function notify() { listeners.forEach(function (cb) { cb(); }); }
   function onStorage(event) {
     if (event.key !== STORAGE_KEY && event.key !== null) return;

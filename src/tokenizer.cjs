@@ -148,6 +148,26 @@ function detectBadge(src) {
   return m === null ? null : EXT_BADGE.get(m[1]) ?? null;
 }
 
+/**
+ * 路径形状判定：宿主工具行（read/write/edit）摘要里的文件路径。
+ * 只认「无空白、路径字符、且是已知文件名或带目录分隔符」的短文本——
+ * URL、命令、术语一律不认。宁可漏染，不误伤术语（DESIGN.md §2.2）。
+ * @param src - 候选文本。
+ * @returns true 表示该文本像一条文件路径。
+ */
+function detectPathLike(src) {
+  if (typeof src !== 'string') return false;
+  var s = src.trim();
+  if (s.length === 0 || s.length > 200 || /\s/.test(s)) return false;
+  // URL 自带分隔符与协议，先排除，避免把 http(s) 地址当路径。
+  if (/^[a-z][\w+.-]*:\/\//i.test(s)) return false;
+  s = s.replace(/#L\d+(?:-L?\d+)?$/, '');
+  if (detectBadge(s) !== null) return true;
+  var path = s.replace(/\\/g, '/');
+  path = path.replace(/^[a-z]:\//i, '').replace(/^\/{1,2}/, '');
+  return /^(?:[\p{L}\p{N}_.~-]+\/)+[\p{L}\p{N}_.~-]+$/u.test(path);
+}
+
 /** 首词是否为已知命令（决定整段是否按 shell 规则着色）。 */
 function detectCommand(src) {
   if (typeof src !== 'string') return false;
@@ -328,5 +348,5 @@ function tokenizeRanges(src, bash) {
 }
 
 if (typeof module !== 'undefined' && module.exports !== undefined && typeof window === 'undefined') {
-  module.exports = { tokenizeRanges, detectBadge, detectCommand, detectInlineMode, detectInlineContext };
+  module.exports = { tokenizeRanges, detectBadge, detectCommand, detectInlineMode, detectInlineContext, detectPathLike };
 }

@@ -19,7 +19,7 @@ DeepSeek Harness 的行内代码外观插件。轻背景、语法色、文件标
 </div>
 
 > [!NOTE]
-> **本页为 0.4.0 版本文档。** 字体能力分类与搜索、设置页、六套外观预设和自定义选项见 [更新记录](CHANGELOG.md)。main 与 npm 已发布包不自动等同；实际发布状态以 [npm](https://www.npmjs.com/package/dsh-code-pill) 与 [GitHub Releases](https://github.com/KouzakiUmi/dsh-code-pill/releases) 为准。推送 main 只构建验证包，不会自动发布 npm。
+> **本页为 0.5.0 版本文档。** 字体能力分类与搜索、设置页、六套外观预设和自定义选项见 [更新记录](CHANGELOG.md)。main 与 npm 已发布包不自动等同；实际发布状态以 [npm](https://www.npmjs.com/package/dsh-code-pill) 与 [GitHub Releases](https://github.com/KouzakiUmi/dsh-code-pill/releases) 为准。推送 main 只构建验证包，不会自动发布 npm。
 
 ## 不必把对话变成编辑器
 
@@ -46,6 +46,8 @@ DeepSeek Harness 的行内代码外观插件。轻背景、语法色、文件标
 
 <img src="https://raw.githubusercontent.com/KouzakiUmi/dsh-code-pill/main/assets/markers.png" width="100%" alt="四种文件标记模式：关闭、语言文字、小图标、图标加文字。普通代码表达式不加文件图标。">
 
+聊天文件路径同样使用胶囊：覆盖读取／写入／编辑摘要、正文文件引用、搜索结果文件名、读取卡片标题与聊天内路径标签。保留宿主点击和截断；URL、匹配正文、行号、终端输出和附件卡片不受影响，可在设置里整项关闭。聊天路径适配自 0.5.0 起提供，已通过宿主结构夹具回归，尚未完成真实宿主整页验收。
+
 ## 调到舒服，再应用
 
 在 **设置 → Code Pill** 中使用两个 Tab：**代码外观** 与 **字体**。
@@ -54,7 +56,7 @@ DeepSeek Harness 的行内代码外观插件。轻背景、语法色、文件标
 
 - **颜色**：分别调整深浅主题的六个文字角色、胶囊底色和徽章颜色。
 - **排版**：字号比例、圆角、水平内边距、底色强度。
-- **显示**：行内语法着色、文件标记，以及保留宿主／使用当前色板的代码块配色。
+- **显示**：行内语法着色、文件标记、聊天文件路径，以及保留宿主／使用当前色板的代码块配色。
 - **管理**：保存并应用、取消草稿、恢复默认、JSON 导入导出。
 
 **代码外观草稿不改变聊天。** 字体 Tab 保留 Font Lab 的即时应用模式，支持全局／等宽字体、界面缩放、会话字号、逐部位覆盖、自定义选择器和 CSS 导出。首次读取原 Font Lab 的本浏览器配置，之后独立保存，不修改原插件配置。

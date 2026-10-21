@@ -1,6 +1,6 @@
 # 开发与验证
 
-本文描述 **0.4.0** 的源码与交付流程，npm `0.2.0` 不包含这些新增功能；实际发布状态以 registry 和 GitHub Release 为准。包版本字段见 [package.json](../package.json)；产品约定见 [DESIGN.md](../DESIGN.md)，验证边界见 [兼容性说明](compatibility.md)。
+本文描述 **0.5.0** 的源码与交付流程，npm `0.2.0` 不包含这些新增功能；实际发布状态以 registry 和 GitHub Release 为准。包版本字段见 [package.json](../package.json)；产品约定见 [DESIGN.md](../DESIGN.md)，验证边界见 [兼容性说明](compatibility.md)。
 
 ## 环境与完整自检
 
@@ -22,6 +22,7 @@ node tests/client-smoke.test.mjs
 node tests/browser-render.test.mjs
 node tests/dynamic-render.test.mjs
 node tests/settings-browser.test.mjs
+node tests/tool-path.test.mjs
 node scripts/color-audit.mjs
 npm pack --ignore-scripts --json > pack.json
 node scripts/prepare-release.mjs
@@ -37,6 +38,7 @@ node scripts/prepare-release.mjs
 | [browser-render.test.mjs](../tests/browser-render.test.mjs) | 真实浏览器颜色、Highlight ranges、徽章、主题切换、卸载 |
 | [dynamic-render.test.mjs](../tests/dynamic-render.test.mjs) | 流式节点变化、Range 身份、区域迁移、设置更新和降级 |
 | [settings-browser.test.mjs](../tests/settings-browser.test.mjs) | 真实 React 的草稿隔离、保存/失败、持久化恢复、导入、窄屏、清理；宿主控件是结构替身 |
+| [tool-path.test.mjs](../tests/tool-path.test.mjs) | 复刻宿主结构的路径适配、跨容器移动、属性资格变化、差量写入和交互保持；不是宿主整页验收 |
 | [color-audit.mjs](../scripts/color-audit.mjs) | 所有预设深浅主题的页面/合成胶囊/徽章对比度、角色明度差、绿色盲模拟混淆对 |
 
 浏览器测试使用 `playwright-core` 驱动已安装的 Chrome，默认 `BROWSER_CHANNEL=chrome`；可设置 `BROWSER_CHANNEL=msedge` 使用已安装的 Edge。这不代表 Edge 已进入实际验证矩阵。预览图写入 `dist/`，包括行内代码与设置页深浅布局；它们是测试夹具截图，不是生产 DSH 全页截图。
@@ -61,6 +63,7 @@ src/font-ui.js ───────────── 字体 Tab 与逐部位�
 src/font-styles.css ──────── 字体面板与双 Tab 布局
 src/tokenizer.cjs ────────── 行内分类、文件与命令识别
 src/styles.css ───────────── 几何、伪元素、设置布局
+src/path-renderer.js ─────── 聊天路径位置适配、归属对账、差量装饰
 src/client-main.js ───────── DOM 观察、RAF、Highlight、生命周期
              上述源码 ── scripts/build.mjs ── lib/client.js
 宿主 ModuleLoader ── require('react') / require(UI primitives) ── 设置页
@@ -85,7 +88,7 @@ lib/index.js ─────────────── host 空操作
 
 ## CI 与发布不是同一操作
 
-[ci.yml](../.github/workflows/ci.yml) 在 **main 推送与 PR** 上执行 Node 24 安装、构建、语法与 manifest 检查、全部八项测试、色板审计和打包。构建后使用 `git diff --exit-code -- lib/client.js` 检查提交产物是否漂移；成功后上传 `verified-package` artifact（`dist/`）。**main 推送或 PR 不会发布 npm，也不会创建 GitHub Release。**
+[ci.yml](../.github/workflows/ci.yml) 在 **main 推送与 PR** 上执行 Node 24 安装、构建、语法与 manifest 检查、全部单元与浏览器测试、色板审计和打包。构建后使用 `git diff --exit-code -- lib/client.js` 检查提交产物是否漂移；成功后上传 `verified-package` artifact（`dist/`）。**main 推送或 PR 不会发布 npm，也不会创建 GitHub Release。**
 
 [release.yml](../.github/workflows/release.yml) 由 `v*` 标签触发；手动恢复也必须选择标签 ref。verify job 要求标签精确等于包版本前加 `v`，重复完整验证并上传 `release-package`。npm 与 GitHub jobs 都使用这个已验证 tarball，而非重新打包。
 

@@ -49,6 +49,7 @@ test('defaults: exact default shape with direct palette objects', () => {
     preset: 'amber',
     syntax: true,
     marker: 'label',
+    toolPath: true,
     fontScale: 0.94,
     radius: 4,
     padding: 0.25,
@@ -151,6 +152,12 @@ test('normalize: strict enum validation', () => {
   }
   throws(() => CP_SETTINGS.normalize({ version: 1, blockTheme: 'custom' }), /blockTheme/)
   assert.equal(CP_SETTINGS.normalize({ version: 1, blockTheme: 'preset' }).blockTheme, 'preset')
+})
+
+test('normalize: toolPath is a strict boolean', () => {
+  throws(() => CP_SETTINGS.normalize({ version: 1, toolPath: 'yes' }), /toolPath/)
+  assert.equal(CP_SETTINGS.normalize({ version: 1 }).toolPath, true)
+  assert.equal(CP_SETTINGS.normalize({ version: 1, toolPath: false }).toolPath, false)
 })
 
 test('normalize: numeric ranges enforced', () => {
