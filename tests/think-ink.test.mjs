@@ -87,6 +87,12 @@ try {
   }))
   await page.goto('http://dsh-code-pill.test/')
   await page.evaluate(() => {
+    const raf = window.requestAnimationFrame.bind(window)
+    window.inkFrameRequests = 0
+    window.requestAnimationFrame = cb => { if (cb.name === 'tick') window.inkFrameRequests++; return raf(cb) }
+    window.segmentLengths = []
+    const segment = Intl.Segmenter.prototype.segment
+    Intl.Segmenter.prototype.segment = function (text) { window.segmentLengths.push(text.length); return segment.call(this, text) }
     window.__ModuleLoader__ = { load(spec) {
       window.plugin = spec.factory(() => { throw new Error('unexpected require') })
       const disposers = []
@@ -144,7 +150,10 @@ try {
   // 开启：已有文字是历史，只有之后新增的文字上色。
   await page.evaluate(() => window.setConfig({ thinkRainbow: true }))
   await settle()
-  assert.equal(await page.evaluate(() => window.inkNames()), 80, '开启后注册全部色阶')
+  assert.equal(await page.evaluate(() => window.inkNames()), 20, '仅注册5个固定色相与4档淡出的高亮集合')
+  const cssHues = await page.evaluate(() => [...document.querySelector('style[data-plugin-css="dsh-code-pill"]').textContent.matchAll(/::highlight\(dshcp-ink-(\d+)\)\s*\{\s*color:[^;]+hsl\((\d+)/g)].map(match => [Number(match[1]), Number(match[2])]))
+  assert.equal(cssHues.length, 20)
+  for (const [bucket, hue] of cssHues) assert.equal(hue, (bucket % 5) * 72, '同一单词淡出期间只改变与灰色的混合比例，不轮换色相')
   assert.equal(await page.locator('#md[data-dshcp-ink]').count(), 1)
   assert.deepEqual(await page.evaluate(() => window.inkWords()), [], '历史文字不播放')
   const baseline = await sat()
@@ -164,8 +173,8 @@ try {
   assert.equal(await page.evaluate(() => document.getElementById('p1').firstChild === window.firstNode), true)
   assert.equal(await page.evaluate(() => document.getElementById('md').childNodes.length), nodeBefore)
 
-  // 结算：约 1.4s 后全部落回正文色，Highlight 清空，颜色回到宿主色。
-  await wait(2200)
+  // 结算：400ms 短尾结束后落回正文色，不等待旧版1.4s的动画。
+  await wait(800)
   assert.deepEqual(await page.evaluate(() => window.inkWords()), [], '动画结束后单元全部释放')
   const after = await sat()
   // 文字变多会带来少量子像素色边，所以与「彩色期间」比较而不是与基线逐像素比较。
@@ -179,7 +188,7 @@ try {
   await settle()
   await page.evaluate(() => { document.getElementById('sum').firstChild.nodeValue = 'Verifying workflow process' })
   assert.deepEqual((await page.evaluate(() => window.inkWords())).filter(word => ['Verifying', 'workflow', 'process'].includes(word)), ['Verifying', 'process', 'workflow'])
-  await wait(1700)
+  await wait(650)
 
   // 展开时已有大段内容：是历史，不播放；之后追加才播放。
   await page.evaluate(() => {
@@ -189,7 +198,7 @@ try {
   assert.deepEqual(await page.evaluate(() => window.inkWords()), [], '挂载时的大段内容不播放')
   await page.evaluate(() => window.append('p3', 'fresh'))
   assert.deepEqual(await page.evaluate(() => window.inkWords()), ['fresh'])
-  await wait(1700)
+  await wait(650)
 
   // 刚开始流式的短内容仍算新文字。
   await page.evaluate(() => {
@@ -197,7 +206,7 @@ try {
   })
   await settle()
   assert.deepEqual(await page.evaluate(() => window.inkWords()), ['First', 'tokens'])
-  await wait(1700)
+  await wait(650)
 
   // 代码块与非运行态：不播放。
   await page.evaluate(() => {
@@ -225,11 +234,47 @@ try {
     document.getElementById('host').insertAdjacentHTML('beforeend', `<div class="think" id="row5" data-variant="think" data-state="running"><div class="thinkBody"><div class="markdown" data-markdown-variant="compact"><p id="p5">${'seed '.repeat(40)}</p></div></div></div>`)
   })
   await settle()
+  // 大批新增只显示尾部的16个词；无论整段有多长，分词窗口都不超过176字符。
+  await page.evaluate(() => window.append('p5', ' x'.repeat(200)))
+  const tailRanges = await page.evaluate(() => [...CSS.highlights].filter(([name]) => name.startsWith('dshcp-ink-')).flatMap(([, h]) => [...h]).map(r => ({ start: r.startOffset, end: r.endOffset, length: r.startContainer.length })))
+  assert.equal(tailRanges.length, 16)
+  assert.ok(tailRanges.every(r => r.start >= r.length - 128 && r.end <= r.length), '只染最近的短尾，不重染整段正文')
+  const bucketOf = word => page.evaluate(word => {
+    for (const [name, highlight] of CSS.highlights) if (name.startsWith('dshcp-ink-')) {
+      for (const range of highlight) if (range.startContainer.nodeValue.slice(range.startOffset, range.endOffset) === word) return Number(name.slice('dshcp-ink-'.length)) % 5
+    }
+    return null
+  }, word)
+  await page.evaluate(() => window.append('p5', ' per'))
+  const initialHue = await bucketOf('per')
+  assert.notEqual(initialHue, null)
+  await page.evaluate(() => window.append('p5', 'formance'))
+  assert.equal(await bucketOf('performance'), initialHue, '同一词跨批次追加字母，仍用原来的初始色相')
+  assert.equal(await bucketOf('per'), null)
+  assert.equal(await bucketOf('formance'), null)
+  await wait(650)
+  await page.evaluate(() => { window.append('p5', ' history'.repeat(30000)); window.append('p5', ' tailFresh') })
+  // 同一批超大输入不播放；下一批的一个新词可以正常播放。
+  await settle()
+  await page.evaluate(() => window.append('p5', ' newest'))
+  assert.deepEqual(await page.evaluate(() => window.inkWords()), ['newest'])
+  await wait(650)
+  await page.evaluate(() => document.getElementById('p5').parentElement.insertAdjacentHTML('beforeend', '<div id="many">' + Array.from({ length: 50 }, (_, i) => '<p id="new-' + i + '">word_' + i + '</p>').join('') + '</div>'))
+  await settle()
+  const manyWords = await page.evaluate(() => window.inkWords())
+  assert.equal(manyWords.length, 16, '多个新节点共享每批及全局预算')
+  assert.ok(manyWords.includes('word_49') && !manyWords.includes('word_0'), '优先最新节点')
+  await wait(650)
+  await page.evaluate(() => window.append('new-0', ' newword'))
+  assert.deepEqual(await page.evaluate(() => window.inkWords()), ['newword'], '未获颜色预算的文字也登记为历史，不在后续批次补播')
+  await wait(650)
+  assert.ok(await page.evaluate(() => Math.max(...window.segmentLengths) <= 176), '分词成本不随完整CoT长度增长')
+  assert.equal(await page.evaluate(() => window.inkFrameRequests), 0, '动画不用逐帧RAF，只在淡出档位边界合并刷新')
   await page.evaluate(() => window.append('p5', 'giant '.repeat(300)))
   assert.deepEqual(await page.evaluate(() => window.inkWords()), [], '超大新增不播放')
   await page.evaluate(() => { for (let i = 0; i < 40; i++) window.append('p5', ' burst'.repeat(30)) })
-  assert.ok((await page.evaluate(() => window.inkWords())).length <= 600, '动画单元有上限')
-  await wait(1700)
+  assert.ok((await page.evaluate(() => window.inkWords())).length <= 16, '全局最多保留16个活跃词')
+  await wait(650)
 
   // 系统「减少动态效果」：完全停用；恢复后重新可用。
   await page.emulateMedia({ reducedMotion: 'reduce' })
@@ -239,7 +284,7 @@ try {
   assert.deepEqual(await page.evaluate(() => window.inkWords()), [])
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   await settle()
-  assert.equal(await page.evaluate(() => window.inkNames()), 80)
+  assert.equal(await page.evaluate(() => window.inkNames()), 20)
   await page.evaluate(() => window.append('p5', ' lively'))
   assert.deepEqual(await page.evaluate(() => window.inkWords()), ['lively'])
 
@@ -259,6 +304,25 @@ try {
   assert.equal(await page.evaluate(() => window.inkNames()), 0)
   assert.equal(await page.locator('[data-dshcp-ink]').count(), 0)
   assert.equal(await page.locator('style[data-plugin-css="dsh-code-pill"]').count(), 0)
+  await wait(500)
+  assert.equal(await page.evaluate(() => window.inkNames()), 0, '卸载后的待执行定时器不能恢复高亮')
   assert.deepEqual(errors, [], 'no page errors')
-  console.log('think ink: rainbow-then-settle on streamed thinking text, history/remount/reduced-motion/toggle/dispose OK')
+  // 缺少 Intl.Segmenter 时使用有界降级，不依赖第三方分词器。
+  const fallback = await browser.newPage()
+  await fallback.route('http://dsh-code-pill.test/fallback', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: '<body><div data-variant="think" data-state="running"><div data-markdown-variant="compact"><p id="text">history </p></div></div></body>' }))
+  await fallback.goto('http://dsh-code-pill.test/fallback')
+  await fallback.evaluate(() => {
+    Intl.Segmenter = undefined
+    localStorage.setItem('dsh-code-pill.settings.v1', JSON.stringify({ version: 1, thinkRainbow: true }))
+    const cleanup = []
+    window.__ModuleLoader__ = { load(spec) { spec.factory(() => { throw Error('unexpected require') }).apply({ effect(cb) { cleanup.push(cb()) } }) } }
+    window.cleanup = () => cleanup.reverse().forEach(off => off())
+  })
+  await fallback.addScriptTag({ content: bundle })
+  await fallback.evaluate(() => { document.getElementById('text').firstChild.nodeValue += 'simple 中文测试' })
+  assert.deepEqual(await fallback.evaluate(() => [...CSS.highlights].filter(([name]) => name.startsWith('dshcp-ink-')).flatMap(([, h]) => [...h].map(r => r.startContainer.nodeValue.slice(r.startOffset, r.endOffset))).sort()), ['simple', '中文', '测试'])
+  await fallback.evaluate(() => window.cleanup())
+  assert.equal(await fallback.evaluate(() => [...CSS.highlights.keys()].filter(name => name.startsWith('dshcp-ink-')).length), 0)
+  await fallback.close()
+  console.log('think ink: fixed word hues, 16-word/tail/segmentation budgets, partial-word append, no animation RAF, fallback, history/remount/reduced-motion/toggle/dispose OK')
 } finally { await browser.close() }

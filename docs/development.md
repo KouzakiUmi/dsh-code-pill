@@ -41,11 +41,20 @@ node scripts/prepare-release.mjs
 | [dynamic-render.test.mjs](../tests/dynamic-render.test.mjs) | 流式节点变化、Range 身份、区域迁移、设置更新和降级 |
 | [settings-browser.test.mjs](../tests/settings-browser.test.mjs) | 真实 React 的草稿隔离、保存/失败、持久化恢复、导入、全部行颜色、嵌套滚动区域的顶部吸附与无自动回滚保存、窄屏、清理；宿主控件是结构替身 |
 | [tool-path.test.mjs](../tests/tool-path.test.mjs) | 复刻宿主结构的路径适配、跨容器移动、属性资格变化、差量写入和交互保持；不是宿主整页验收 |
-| [think-ink.test.mjs](../tests/think-ink.test.mjs) | 思考文字彩虹刷入：像素采样、流式增量、StaticRange 不折叠、重挂载/结算不重播、减少动态效果、开关与卸载；不是宿主整页验收 |
+| [think-ink.test.mjs](../tests/think-ink.test.mjs) | 新词固定色相与淡出：像素采样、16词预算、176字符分词窗口、半词追加、多节点突发、无动画RAF、分词降级、历史/结算不重播、减少动态效果、开关与卸载定时器清理；不是宿主整页验收 |
 | [row-tint.test.mjs](../tests/row-tint.test.mjs) | 折叠动作行着色：12 类全部映射工具、未知工具兜底、技能／Cordis 独立头部、context 提示位置边界、嵌套行、类别／状态动态切换、双主题、完成状态词、开关与卸载；开启前后宿主 DOM 逐字节一致；不是宿主整页验收 |
 | [color-audit.mjs](../scripts/color-audit.mjs) | 所有预设深浅主题的页面/合成胶囊/徽章对比度、角色明度差、绿色盲模拟混淆对 |
 
 浏览器测试使用 `playwright-core` 驱动已安装的 Chrome，默认 `BROWSER_CHANNEL=chrome`；可设置 `BROWSER_CHANNEL=msedge` 使用已安装的 Edge。这不代表 Edge 已进入实际验证矩阵。预览图写入 `dist/`，包括行内代码与设置页深浅布局；它们是测试夹具截图，不是生产 DSH 全页截图。
+
+可选的新词刷入合成性能对照（只访问路由拦截的隔离页面，不连接生产 DSH）：
+
+```sh
+node scripts/benchmark-think-ink.mjs
+node scripts/benchmark-think-ink.mjs "<待测 lib/client.js 路径>" dist/ink-before.json
+```
+
+[benchmark-think-ink.mjs](../scripts/benchmark-think-ink.mjs) 使用相同流式输入、300 段历史文本和工作区行更新，对比 `thinkRainbow` 关闭／开启时的高亮 add/delete 次数、活跃区间峰值、动画回调与观察器耗时。默认结果写入 `dist/think-ink-benchmark-results.json`。它衡量合成场景工作量；帧间隔会受显示刷新率、CPU 与其他进程影响，不等于生产桌面流畅度验收。固定预算与行为由 [think-ink.test.mjs](../tests/think-ink.test.mjs) 拦截，不用不稳定的绝对耗时作为 CI 门槛。
 
 可选的真实 Cordis 生命周期检查：
 
@@ -68,7 +77,7 @@ src/font-styles.css ──────── 字体面板与双 Tab 布局
 src/tokenizer.cjs ────────── 行内分类、文件与命令识别
 src/styles.css ───────────── 几何、伪元素、设置布局
 src/path-renderer.js ─────── 聊天路径位置适配、归属对账、差量装饰
-src/think-ink.js ─────────── 思考文字彩虹刷入：流式新增文字的时间分级 Highlight
+src/think-ink.js ─────────── 思考新词刷入：固定词色、短尾预算与合并淡出定时器
 src/row-tint.js ──────────── 折叠动作行着色：类别/状态 CSS 与完成状态词区间
 src/client-main.js ───────── DOM 观察、RAF、Highlight、生命周期
              上述源码 ── scripts/build.mjs ── lib/client.js

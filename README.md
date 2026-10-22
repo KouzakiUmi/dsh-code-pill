@@ -20,7 +20,7 @@ DeepSeek Harness 的对话外观插件：行内代码胶囊、语法色与文件
 </div>
 
 > [!NOTE]
-> **本页为 0.7.0 版本文档。** 字体能力分类与搜索、设置页、六套外观预设和自定义选项见 [更新记录](CHANGELOG.md)。main 与 npm 已发布包不自动等同；实际发布状态以 [npm](https://www.npmjs.com/package/dsh-code-pill) 与 [GitHub Releases](https://github.com/KouzakiUmi/dsh-code-pill/releases) 为准。推送 main 只构建验证包，不会自动发布 npm。
+> **本页为 0.7.1 版本文档。** 字体能力分类与搜索、设置页、六套外观预设和自定义选项见 [更新记录](CHANGELOG.md)。main 与 npm 已发布包不自动等同；实际发布状态以 [npm](https://www.npmjs.com/package/dsh-code-pill) 与 [GitHub Releases](https://github.com/KouzakiUmi/dsh-code-pill/releases) 为准。推送 main 只构建验证包，不会自动发布 npm。
 
 ## 快速开始
 
@@ -52,9 +52,9 @@ dsh plugin --profile <profile> add dsh-code-pill
 
 <img src="https://raw.githubusercontent.com/KouzakiUmi/dsh-code-pill/main/assets/feature-ink.png" width="100%" alt="思考文字彩虹刷入的四个时间点，深色与浅色各一列：新到的文字先呈彩虹色，约 1.4 秒后落回宿主的正文色，已显示的文字保持原样">
 
-默认关闭，0.6.0 起提供。流式思考里刚出现的文字短暂呈彩虹色，约 1.4 秒后落回宿主的正文色，像被一笔刷上去；只作用于正在输出的思考，系统开启“减少动态效果”时自动停用。
+默认关闭，基础功能自 0.6.0 起提供。**0.7.1 起**改为每个新词保持一个固定初始色，然后在约 400ms 内淡回宿主正文色；只保留最近 16 个活跃词，不再逐帧轮换单词色相，也不为动画排队或改变正文追加调度。系统开启“减少动态效果”时自动停用。上图为 0.6.0／0.7.0 的历史效果演示，不代表这次轻量短尾的时间参数。
 
-<sub>上面两张图是当前客户端 bundle 在隔离页面里的真实渲染，使用按宿主 DOM 结构搭建的夹具，不是 DSH 整页截图；这两项功能尚未在真实宿主页面完成整页验收。</sub>
+<sub>上面两张图是对应版本客户端 bundle 在隔离页面里的真实渲染（思考图保留旧版时间参数），使用按宿主 DOM 结构搭建的夹具，不是 DSH 整页截图；这两项功能尚未在真实宿主页面完成整页验收。</sub>
 
 ## 不必把对话变成编辑器
 

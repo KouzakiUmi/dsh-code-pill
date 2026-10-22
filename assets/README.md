@@ -8,7 +8,7 @@
 | [presets.png](presets.png) | 六套配对深浅色预设，名称和颜色读取 [settings-core.cjs](../src/settings-core.cjs) |
 | [markers.png](markers.png) | 四种文件标记模式，使用同一份真实客户端 bundle |
 | [feature-rows.png](feature-rows.png) | 折叠动作行着色前后对比（深浅各一组），按宿主 DOM 结构的夹具渲染 |
-| [feature-ink.png](feature-ink.png) | 思考文字彩虹刷入的实测时间序列（深浅各一列） |
+| [feature-ink.png](feature-ink.png) | 0.6.0／0.7.0 旧版思考彩虹的实测时间序列（深浅各一列）；轻量短尾的当前参数见 [设计说明](../DESIGN.md)，重建脚本已使用新参数 |
 
 ## 重建
 

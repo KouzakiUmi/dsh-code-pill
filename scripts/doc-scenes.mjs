@@ -76,7 +76,7 @@ const INK_HISTORY = '先看现有的发布流程：校验任务已经跑完整�
 const INK_NEW = '接下来核对 npm 上的完整性哈希，再确认发布资产和标签指向同一个提交，最后给出结论。'
 
 /** Returns timed frames of the rainbow settle effect for one theme (PNG buffers + measured offsets). */
-export async function renderInkFrames(browser, bundle, theme, times = [60, 360, 760, 1700]) {
+export async function renderInkFrames(browser, bundle, theme, times = [30, 140, 260, 650]) {
   assert.ok(INK_HISTORY.length > 120, 'history must exceed the 120-character threshold so only the new text is inked')
   const dark = theme === 'dark'
   const context = await browser.newContext({ viewport: { width: 560, height: 360 }, deviceScaleFactor: 2 })

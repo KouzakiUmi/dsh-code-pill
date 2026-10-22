@@ -1,6 +1,6 @@
 # 兼容性与权限边界
 
-本文针对 **0.7.0** 的代码。六套预设、自定义色板、双 Tab 设置页、图标、字体与持久化能力自 `0.3.0` 起提供，字体能力分类与搜索自 `0.4.0` 起提供；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
+本文针对 **0.7.1** 的代码。六套预设、自定义色板、双 Tab 设置页、图标、字体与持久化能力自 `0.3.0` 起提供，字体能力分类与搜索自 `0.4.0` 起提供；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
 
 ## 已知证据，不扩大结论
 
@@ -23,7 +23,7 @@ Font Lab 合并版本的浏览器内行为已由隔离 Chrome + React 测试覆�
 
 当前动作行分类适配依据本次核对的宿主标准 DisclosureRow、技能／Cordis 独立头部及聊天 context 标记；隔离测试覆盖全部已映射工具、未知工具兜底与双主题。这不代表任意第三方插件自建卡片也自动兼容；没有这些语义标记和头部结构时不猜测正文。新增分类和顶部保存栏的本地构建未据此扩大 Core 兼容声明，也不意味着已经安装到正在运行的实例。
 
-思考文字彩虹刷入依赖 CSS Custom Highlight API、`StaticRange` 与 `color-mix()`；缺任一能力时该选项静默不生效。本机验证使用 Chrome 155（隔离页面，复刻宿主思考行与流式 Markdown 的 DOM 契约）；本机桌面壳的 Chromium 版本来自安装包字符串，不等于已在其真实聊天页验收。
+思考文字彩虹刷入依赖 CSS Custom Highlight API、`StaticRange` 与 `color-mix()`；缺任一能力时该选项静默不生效。当前源码的轻量短尾优先使用原生 `Intl.Segmenter` 分词，缺失时降级为有界词段；合成开关对照统计高亮更新次数、区间峰值和回调耗时，不把该统计冒充生产桌面 FPS 或已安装后的性能验收。本机验证使用 Chrome 155（隔离页面，复刻宿主思考行与流式 Markdown 的 DOM 契约）；本机桌面壳的 Chromium 版本来自安装包字符串，不等于已在其真实聊天页验收。
 
 折叠动作行着色的类别与状态色是纯 CSS，依赖宿主 `data-variant`／`data-tool`／`data-state` 与 DisclosureRow 的固定子结构（取自本机已安装宿主源码，宿主改动结构时可能失效且不报错）；完成状态词另需 CSS Custom Highlight 与 `StaticRange`。同样只在隔离 Chrome 夹具中验证，未在真实聊天页验收。
 

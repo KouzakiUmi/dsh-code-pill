@@ -80,7 +80,7 @@ try {
     const light = inkFrames.light[i]
     return '<div><div class="cap">DARK / 深色 · +' + dark.at + ' ms</div><div class="panel"><img src="' + dataUri(dark.png) + '"></div></div><div><div class="cap">LIGHT / 浅色 · +' + light.at + ' ms</div><div class="panel"><img src="' + dataUri(light.png) + '"></div></div>'
   }).join('') + '</div>']
-  const inkPage = featureShell('刚出现的字，像被一笔刷上去。', '流式思考里新到的文字先以彩虹色出现，约 1.4 秒后落回宿主的正文色；已经显示的文字不重播。开启“减少动态效果”时自动停用。', inkParts.join(''), '真实 client bundle 渲染 · 时间点为实测 · 隔离测试页，非 DSH 整页截图')
+  const inkPage = featureShell('刚出现的字，像被一笔刷上去。', '新单词以固定初始色出现，再在约 400ms 内淡回宿主正文色；只保留最近 16 个活跃词，不轮换同一词的色相，也不重播历史。开启“减少动态效果”时自动停用。', inkParts.join(''), '真实 client bundle 渲染 · 时间点为实测 · 隔离测试页，非 DSH 整页截图')
   for (const [name, html, width, height] of [['feature-rows', rowsPage, 1200, 900], ['feature-ink', inkPage, 1200, 900]]) {
     const context = await browser.newContext({ viewport: { width, height }, deviceScaleFactor: 1 })
     const errors = []
