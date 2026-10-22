@@ -88,7 +88,7 @@ lib/index.js ─────────────── host 空操作
 
 ## 首页展示与文档检查
 
-[render-doc-assets.mjs](../scripts/render-doc-assets.mjs) 读取当前 bundle 和预设，使用隔离的 Chromium frames 生成首页 Banner、六套配对色板对比与文件标记图。开发机使用已安装的开源字体；不打包字体，不调用图片生成服务，不把隔离预览冒充生产 DSH 截图。重建方式见 [展示资源说明](../assets/README.md)。
+[render-doc-assets.mjs](../scripts/render-doc-assets.mjs) 读取当前 bundle 和预设，使用隔离的 Chromium frames 生成首页 Banner、六套配对色板对比、文件标记图，以及折叠动作行着色与思考彩虹刷入的展示图（场景夹具在 [doc-scenes.mjs](../scripts/doc-scenes.mjs)，按宿主 DOM 结构搭建）。开发机使用已安装的开源字体；不打包字体，不调用图片生成服务，不把隔离预览冒充生产 DSH 截图。重建方式见 [展示资源说明](../assets/README.md)。
 
 [check-docs.mjs](../scripts/check-docs.mjs) 检查文档的本地链接、预设名称（按 settings-core 实际数量核对）、docs 打包清单与 main/正式版本边界；CI 和发布 verify 均执行它。截图资源保存在仓库，普通构建不会因本机字体变化而重新生成图片。
 

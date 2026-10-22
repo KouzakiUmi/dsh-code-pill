@@ -1,25 +1,60 @@
-<p align="center">
-  <img src="https://raw.githubusercontent.com/KouzakiUmi/dsh-code-pill/main/assets/banner.png" width="100%" alt="Code Pill：代码更清楚，阅读更连贯。琥珀色行内代码、文件徽章与六套深浅配对预设。">
-</p>
-
 <div align="center">
 
 # Code Pill
 
 **让代码融入阅读，而不是打断阅读。**
 
-DeepSeek Harness 的行内代码外观插件。轻背景、语法色、文件标记，按你的阅读习惯调整。
+DeepSeek Harness 的对话外观插件：行内代码胶囊、语法色与文件标记；聊天里的文件路径、折叠的动作行和思考文字，按需调整。
 
 [![CI](https://github.com/KouzakiUmi/dsh-code-pill/actions/workflows/ci.yml/badge.svg)](https://github.com/KouzakiUmi/dsh-code-pill/actions/workflows/ci.yml)
 [![npm](https://img.shields.io/npm/v/dsh-code-pill?color=916200&label=npm)](https://www.npmjs.com/package/dsh-code-pill)
-[![MIT](https://img.shields.io/badge/license-MIT-68786a)](LICENSE)
+[![license](https://img.shields.io/badge/license-MIT-68786a)](LICENSE)
+[![DSH Core](https://img.shields.io/badge/DSH_Core-0.2.x-68786a)](docs/compatibility.md)
 
-[开始使用](#开始使用) · [挑选色板](#六套色板两种主题) · [设置指南](docs/settings.md) · [开发文档](docs/development.md)
+[快速开始](#快速开始) · [功能预览](#功能预览) · [设置指南](docs/settings.md) · [兼容性与权限](docs/compatibility.md) · [开发文档](docs/development.md)
+
+<img src="https://raw.githubusercontent.com/KouzakiUmi/dsh-code-pill/main/assets/banner.png" width="1200" alt="dsh-code-pill：深色背景上，一张展示琥珀色行内代码与文件徽章的代码卡片，叠放一张按类别着色的折叠动作行列表；真实组件的隔离渲染">
+
+<sub>真实组件 · 隔离渲染 · 不是运行中的 DSH 整页截图</sub>
 
 </div>
 
 > [!NOTE]
 > **本页为 0.6.0 版本文档。** 字体能力分类与搜索、设置页、六套外观预设和自定义选项见 [更新记录](CHANGELOG.md)。main 与 npm 已发布包不自动等同；实际发布状态以 [npm](https://www.npmjs.com/package/dsh-code-pill) 与 [GitHub Releases](https://github.com/KouzakiUmi/dsh-code-pill/releases) 为准。推送 main 只构建验证包，不会自动发布 npm。
+
+## 快速开始
+
+```console
+dsh plugin --profile <profile> add dsh-code-pill
+```
+
+`<profile>` 请替换为实际 Profile 名称。**Desktop 使用目标桌面壳提供的 DSH Desktop CLI**，不要从独立的公共 CLI 管理保留的 `desktop` Profile。也可以在 DSH 插件页直接填写 `dsh-code-pill`。
+
+1. **启用并重载**：按部署方式重新打开／重载 DSH，让新客户端模块被加载；只刷新页面不保证 Host 已升级。
+2. **直接看效果**：安装后行内代码立即变成胶囊，聊天里的文件路径同样套用胶囊。
+3. **按需调整**：打开 **设置 → Code Pill**，在 **代码外观** 里换预设、改颜色、开启 **思考文字彩虹刷入** 或 **折叠动作行着色**；**字体** Tab 管理字体与字号。
+
+更新：`dsh plugin --profile <profile> update dsh-code-pill@latest`。试用 main 构建见 [试用当前 main](#试用当前-main)。
+
+## 功能预览
+
+### 行内代码：一眼区分，不抢正文
+
+轻薄无边框胶囊、克制的语法色和可选文件标记；文件标记不会扩散到普通表达式。
+
+### 折叠动作行：看颜色就知道在做什么（可选）
+
+<img src="https://raw.githubusercontent.com/KouzakiUmi/dsh-code-pill/main/assets/feature-rows.png" width="100%" alt="折叠动作行着色前后对比，深色与浅色各一组：读取、搜索、编辑、命令、思考等按类别给图标和动作名上色，失败显示红色，中断显示琥珀色，已完成和已交付等状态词单独着色">
+
+默认关闭，0.6.0 起提供。折叠的工具行按读取、搜索、写入、命令、思考给图标和动作名上色；失败与中断更醒目，“已完成”“已交付”等状态词单独着色。描述保持宿主色，未归类的行保持原样。类别色和状态色都可以在设置页里按浅色／深色自定义。
+
+### 思考文字彩虹刷入（可选）
+
+<img src="https://raw.githubusercontent.com/KouzakiUmi/dsh-code-pill/main/assets/feature-ink.png" width="100%" alt="思考文字彩虹刷入的四个时间点，深色与浅色各一列：新到的文字先呈彩虹色，约 1.4 秒后落回宿主的正文色，已显示的文字保持原样">
+
+默认关闭，0.6.0 起提供。流式思考里刚出现的文字短暂呈彩虹色，约 1.4 秒后落回宿主的正文色，像被一笔刷上去；只作用于正在输出的思考，系统开启“减少动态效果”时自动停用。
+
+<sub>上面两张图是当前客户端 bundle 在隔离页面里的真实渲染，使用按宿主 DOM 结构搭建的夹具，不是 DSH 整页截图；这两项功能尚未在真实宿主页面完成整页验收。</sub>
 
 ## 不必把对话变成编辑器
 
@@ -48,10 +83,6 @@ DeepSeek Harness 的行内代码外观插件。轻背景、语法色、文件标
 
 聊天文件路径同样使用胶囊：覆盖读取／写入／编辑摘要、正文文件引用、搜索结果文件名、读取卡片标题与聊天内路径标签。保留宿主点击和截断；URL、匹配正文、行号、终端输出和附件卡片不受影响，可在设置里整项关闭。聊天路径适配自 0.5.0 起提供，已通过宿主结构夹具回归，尚未完成真实宿主整页验收。
 
-可选的「思考文字彩虹刷入」（默认关闭，0.6.0 起提供）：流式思考里刚出现的文字短暂呈彩虹色，约 1.4 秒后落回宿主的正文色，像被一笔刷上去；只作用于正在输出的思考，系统开启“减少动态效果”时自动停用。
-
-可选的「折叠动作行着色」（默认关闭，0.6.0 起提供）：折叠的工具行按读取、搜索、写入、命令、思考给图标和动作名上色，失败与中断更醒目，“已完成”“已交付”等状态词单独着色；描述保持宿主色，未归类的行保持原样；类别色和状态色都可以在设置页里按浅色／深色自定义。
-
 ## 调到舒服，再应用
 
 在 **设置 → Code Pill** 中使用两个 Tab：**代码外观** 与 **字体**。
@@ -69,25 +100,7 @@ DeepSeek Harness 的行内代码外观插件。轻背景、语法色、文件标
 
 详细操作、默认值和存储范围见 [设置指南](docs/settings.md)。
 
-## 开始使用
-
-### 安装已发布版本
-
-在 DSH 插件页填写 `dsh-code-pill`，或使用实际 Profile 名称执行：
-
-```powershell
-dsh plugin --profile <profile> add dsh-code-pill
-```
-
-更新已安装版本：
-
-```powershell
-dsh plugin --profile <profile> update dsh-code-pill@latest
-```
-
-按部署方式重新打开／重载 DSH，让新客户端模块被加载。**这些命令安装 npm 已发布包；双 Tab 从 0.3.0 起提供，动态字体分类与搜索从 0.4.0 起提供，聊天文件路径从 0.5.0 起提供，思考文字彩虹刷入与折叠动作行着色从 0.6.0 起提供，请核对安装版本。**
-
-### 试用当前 main
+## 试用当前 main
 
 在 [CI 构建记录](https://github.com/KouzakiUmi/dsh-code-pill/actions/workflows/ci.yml) 中选择成功的 main 构建，下载 `verified-package` artifact 并解压。使用其中的 `dsh-code-pill.tgz`，不要把 GitHub 源码 ZIP 当作插件包。
 
