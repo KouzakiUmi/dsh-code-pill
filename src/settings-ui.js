@@ -65,7 +65,7 @@ function installSettings(ctx, store, fontStore) {
   }
   var h = React.createElement;
   var colorNames = { plain: '默认文字', kwc: '控制流', kwd: '声明与类型', str: '字符串', com: '注释', num: '数字', bg: '胶囊底色', badgeBg: '徽章底色', badgeText: '徽章文字' };
-  var rowNames = { read: '读取', search: '搜索', write: '写入／编辑／交付', run: '命令', think: '思考', ok: '完成状态', warn: '中断／警示', err: '失败' };
+  var rowNames = CP_SETTINGS.ROW_LABELS;
   // 显示名以 MARKERS 的取值为键，顺序由单一事实源决定。
   var markerNames = { off: '关闭', label: '语言文字', icon: '小图标', both: '图标＋文字' };
   function tokenText(text, config, theme) {
@@ -87,9 +87,10 @@ function installSettings(ctx, store, fontStore) {
         h('span', { style: { color: tint ? 'color-mix(in oklab, ' + tint + ' 82%, ' + gray + ')' : gray } }, title),
         h('span', { className: 'dshcp-preview-desc', style: { color: gray } }, '· ' + description, status ? ' ' : null, status ? h('span', { style: { color: statusColor } }, status) : null));
     }
-    return [sample('read', colors.read, '读取', '设置说明'), sample('search', colors.search, '搜索', 'thinkRainbow'), sample('write', colors.write, '编辑', '路径与描述'),
-      sample('run', colors.run, '运行命令', '核对测试结果'), sample('think', colors.think, '思考', 'Evaluating job reruns'),
-      sample('job', null, '读取任务输出', 'bash-a256 ·', '已完成', colors.ok), sample('err', colors.err, '读取', 'Permission denied'), sample('warn', colors.warn, '结束任务', 'bash-2 ·', '已中断', colors.warn)];
+    return CP_SETTINGS.ROW_CATEGORIES.map(function (category) {
+      return sample(category.key, colors[category.key], category.title, category.description);
+    }).concat([sample('job', colors.run, '读取任务输出', 'bash-a256 ·', '已完成', colors.ok),
+      sample('err', colors.err, '读取', 'Permission denied'), sample('warn', colors.warn, '结束任务', 'bash-2 ·', '已中断', colors.warn)]);
   }
   function Preview(props) {
     var cfg = props.config, theme = props.theme;
@@ -176,7 +177,7 @@ function installSettings(ctx, store, fontStore) {
         h('div', { className: 'dshcp-control-row' }, h('div', null, h('strong', null, '行内语法着色'), h('small', null, '关闭后保留统一文字颜色')), h(ui.Switch, { checked: draft.syntax, label: '行内语法着色', onChange: function (value) { change('syntax', value); } })),
         h('div', { className: 'dshcp-control-row' }, h('div', null, h('strong', null, '聊天文件路径'), h('small', null, '统一工具摘要、正文文件引用、搜索结果与读取标题的路径外观')), h(ui.Switch, { checked: draft.toolPath, label: '聊天文件路径', onChange: function (value) { change('toolPath', value); } })),
         h('div', { className: 'dshcp-control-row' }, h('div', null, h('strong', null, '思考文字彩虹刷入'), h('small', null, '思考内容流式出现时，新文字短暂呈彩虹色，随后落回正常颜色；系统开启“减少动态效果”时自动停用')), h(ui.Switch, { checked: draft.thinkRainbow, label: '思考文字彩虹刷入', onChange: function (value) { setDraft(function (old) { return Object.assign({}, old, { thinkRainbow: value }); }); setStatus(''); } })),
-        h('div', { className: 'dshcp-control-row' }, h('div', null, h('strong', null, '折叠动作行着色'), h('small', null, '按读取、搜索、写入、命令、思考给图标和动作名上色，失败与中断更醒目，并突出“已完成”等状态词')), h(ui.Switch, { checked: draft.rowTint, label: '折叠动作行着色', onChange: function (value) { setDraft(function (old) { return Object.assign({}, old, { rowTint: value }); }); setStatus(''); } })),
+        h('div', { className: 'dshcp-control-row' }, h('div', null, h('strong', null, '折叠动作行着色'), h('small', null, '按读取、搜索、命令、会话、代理、任务、技能等 12 类给图标和动作名上色，失败与中断优先，描述保持宿主色')), h(ui.Switch, { checked: draft.rowTint, label: '折叠动作行着色', onChange: function (value) { setDraft(function (old) { return Object.assign({}, old, { rowTint: value }); }); setStatus(''); } })),
         h('label', { className: 'dshcp-control-row' }, h('span', null, '文件标记'), h('select', { 'aria-label': '文件标记', value: draft.marker, onChange: function (event) { change('marker', event.target.value); } }, CP_SETTINGS.MARKERS.map(function (mode) { return h('option', { value: mode, key: mode }, markerNames[mode]); }))),
         h('div', { className: 'dshcp-slider-grid' }, range('字号比例', 'fontScale', .8, 1.1, .01, '×'), range('圆角', 'radius', 0, 10, 1, 'px'), range('水平内边距', 'padding', 0, .6, .01, 'em'), range('底色强度', 'bgOpacity', 0, .2, .005, '')),
         h('label', { className: 'dshcp-control-row' }, h('span', null, '代码块颜色'), h('select', { 'aria-label': '代码块颜色', value: draft.blockTheme, onChange: function (event) { change('blockTheme', event.target.value); } }, h('option', { value: 'host' }, '保留宿主配色'), h('option', { value: 'preset' }, '使用当前色板')))),

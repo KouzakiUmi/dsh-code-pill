@@ -39,10 +39,10 @@ node scripts/prepare-release.mjs
 | [client-smoke.test.mjs](../tests/client-smoke.test.mjs) | 模块工厂、body 未就绪降级、样式注入和清理 |
 | [browser-render.test.mjs](../tests/browser-render.test.mjs) | 真实浏览器颜色、Highlight ranges、徽章、主题切换、卸载 |
 | [dynamic-render.test.mjs](../tests/dynamic-render.test.mjs) | 流式节点变化、Range 身份、区域迁移、设置更新和降级 |
-| [settings-browser.test.mjs](../tests/settings-browser.test.mjs) | 真实 React 的草稿隔离、保存/失败、持久化恢复、导入、窄屏、清理；宿主控件是结构替身 |
+| [settings-browser.test.mjs](../tests/settings-browser.test.mjs) | 真实 React 的草稿隔离、保存/失败、持久化恢复、导入、全部行颜色、嵌套滚动区域的顶部吸附与无自动回滚保存、窄屏、清理；宿主控件是结构替身 |
 | [tool-path.test.mjs](../tests/tool-path.test.mjs) | 复刻宿主结构的路径适配、跨容器移动、属性资格变化、差量写入和交互保持；不是宿主整页验收 |
 | [think-ink.test.mjs](../tests/think-ink.test.mjs) | 思考文字彩虹刷入：像素采样、流式增量、StaticRange 不折叠、重挂载/结算不重播、减少动态效果、开关与卸载；不是宿主整页验收 |
-| [row-tint.test.mjs](../tests/row-tint.test.mjs) | 折叠动作行着色：类别/状态色、完成状态词、悬停、动态更新、开关与卸载；开启前后宿主 DOM 逐字节一致；不是宿主整页验收 |
+| [row-tint.test.mjs](../tests/row-tint.test.mjs) | 折叠动作行着色：12 类全部映射工具、未知工具兜底、技能／Cordis 独立头部、context 提示位置边界、嵌套行、类别／状态动态切换、双主题、完成状态词、开关与卸载；开启前后宿主 DOM 逐字节一致；不是宿主整页验收 |
 | [color-audit.mjs](../scripts/color-audit.mjs) | 所有预设深浅主题的页面/合成胶囊/徽章对比度、角色明度差、绿色盲模拟混淆对 |
 
 浏览器测试使用 `playwright-core` 驱动已安装的 Chrome，默认 `BROWSER_CHANNEL=chrome`；可设置 `BROWSER_CHANNEL=msedge` 使用已安装的 Edge。这不代表 Edge 已进入实际验证矩阵。预览图写入 `dist/`，包括行内代码与设置页深浅布局；它们是测试夹具截图，不是生产 DSH 全页截图。

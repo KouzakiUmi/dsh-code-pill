@@ -190,7 +190,11 @@ test('row tints: every colour is readable on both page backgrounds and the categ
   const pages = { light: '#ffffff', dark: '#1e1e1e' }
   for (const theme of ['light', 'dark']) {
     const tints = CP_SETTINGS.ROW_TINTS[theme]
-    assert.deepEqual(Object.keys(tints), ['read', 'search', 'write', 'run', 'think', 'ok', 'warn', 'err'])
+    assert.deepEqual(Object.keys(tints), CP_SETTINGS.ROW_KEYS)
+    assert.equal(CP_SETTINGS.ROW_CATEGORIES.length, 12)
+    assert.equal(CP_SETTINGS.ROW_KEYS.length, 15)
+    assert.equal(new Set(CP_SETTINGS.ROW_CATEGORIES.flatMap(category => category.tools.split(/\s+/).filter(Boolean))).size,
+      CP_SETTINGS.ROW_CATEGORIES.flatMap(category => category.tools.split(/\s+/).filter(Boolean)).length, 'each known tool has one category')
     for (const [kind, hex] of Object.entries(tints)) {
       assert.ok(CP_SETTINGS.contrast(hex, pages[theme]) >= CP_SETTINGS.AA_NORMAL, theme + ' ' + kind + ' contrast ' + CP_SETTINGS.contrast(hex, pages[theme]).toFixed(2))
     }
@@ -217,6 +221,17 @@ test('normalize: rowColors accepts partial per-theme overrides and rejects bad i
   assert.deepEqual(CP_SETTINGS.normalize({ version: 1, syntax: false }).rowColors, CP_SETTINGS.defaults().rowColors)
   // 预设只管外观，不改行颜色。
   assert.deepEqual(CP_SETTINGS.presetConfig('cool').rowColors, CP_SETTINGS.defaults().rowColors)
+})
+
+test('normalize: legacy eight-colour settings preserve custom colours and fill new categories', () => {
+  const old = { read: '#112233', search: '#223344', write: '#334455', run: '#445566', think: '#556677', ok: '#667788', warn: '#778899', err: '#8899aa' }
+  const cfg = CP_SETTINGS.normalize({ version: 1, rowTint: true, rowColors: { light: old, dark: old } })
+  for (const theme of ['light', 'dark']) {
+    for (const [key, hex] of Object.entries(old)) assert.equal(cfg.rowColors[theme][key], hex)
+    for (const key of ['session', 'agent', 'task', 'schedule', 'skill', 'ask', 'tool']) assert.equal(cfg.rowColors[theme][key], CP_SETTINGS.ROW_TINTS[theme][key])
+  }
+  assert.equal(cfg.rowTint, true)
+  assert.deepEqual(CP_SETTINGS.parse(CP_SETTINGS.stringify(cfg)), cfg)
 })
 
 test('css: custom row colours reach the theme variables', () => {

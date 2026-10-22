@@ -1,9 +1,9 @@
 /**
  * dsh-code-pill — 折叠动作行着色测试（真 Chrome + 最终 lib/client.js）。
  *
- * 宿主的折叠行都由 DisclosureRow 渲染：行根带 data-variant / data-tool / data-state，
- * 内部是「图标 → 动作名 → 分隔点 → 描述」。这里按 ui-primitives / ui-tool / ui-chat /
- * ui-deliverables 的真实结构复刻各类行，验证：
+ * 标准 DisclosureRow、独立技能/Cordis 头部与聊天 context 提示均有覆盖，
+ * 以 data-variant / data-tool / data-state 与稳定 flow 位置识别，不猜本地化文案。
+ * 这里按 ui-primitives / ui-tool / ui-chat / ui-skill / ui-cordis 的结构复刻各类行，验证：
  * 类别色只落在图标与动作名、描述保持宿主色、失败/中断行换状态色、
  * 摘要末尾的完成状态词用文字区间上色（进度未满、状态不符、命令描述都不染），
  * 全程不改宿主 DOM，开关与卸载能完整撤销。
@@ -27,7 +27,7 @@ const DISCLOSURE = (title, summary) => `
 <div class="root"><div data-disclosure-header><div class="row" data-disclosure-row role="button" tabindex="0">
   <span class="leading"><svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor"><circle cx="7" cy="7" r="5"/></svg></span>
   <span class="shimmer"><span class="content">
-    <span class="shimmer title"><span class="content"><span class="text">${title}</span></span></span>
+    <span class="text title">${title}</span>
     ${summary === '' ? '' : `<span class="sep" data-shimmer-decoration aria-hidden="true"></span>${summary}`}
   </span></span>
 </div></div></div>`
@@ -45,7 +45,32 @@ const BASH = (id, state, summary) => `
   </span></span>
 </div></div>`
 
+/** Current skill cards have their own header (and an extra hidden status span outside ok). */
+const SKILL = (id, state) => `<div id="${id}" data-tool="skill" data-state="${state}"><div class="row">
+  <span class="leading"><svg width="14" height="14"><circle cx="7" cy="7" r="5"/></svg></span>
+  ${state === 'ok' ? '' : '<span class="sr">status</span>'}
+  <span class="shimmer"><span class="content">${state === 'preparing' ? '<span class="title text">加载技能</span>' : `<span class="title"><span class="text">加载技能</span></span><span class="sep"></span>${SUMMARY('engineering-delivery')}`}</span></span>
+</div><pre class="body">skill instructions stay host-coloured</pre></div>`
+const CORDIS = (id, tool, state) => `<div id="${id}" data-tool="${tool}" data-state="${state}"><div class="row">
+  <span class="leading"><svg width="14" height="14"><circle cx="7" cy="7" r="5"/></svg></span>
+  <span class="title">运行插件</span><span class="sep"></span>${SUMMARY('plugin-id')}
+  <span class="status">running</span><button>inspect</button>
+</div><pre class="body">plugin output stays host-coloured</pre></div>`
+const CONTEXT = (id, kind = 'context') => `<div id="${id}" data-chat-flow-kind="${kind}"><div data-slot="conversation.chat.node">${DISCLOSURE('已添加工具：example_tool', '')}</div></div>`
+// Exercise every mapped wire tool, including the host's others-variant details rows.
+const CATALOG = CP_SETTINGS.ROW_CATEGORIES.flatMap(category => category.tools.split(/\s+/).filter(Boolean).map(tool => ({ tool, key: category.key })))
 const ROWS = `
+${CATALOG.map(({ tool }) => OWNER('catalog-' + tool, `data-variant="others" data-tool="${tool}" data-state="ok"`, tool, SUMMARY('parameters remain neutral'))).join('')}
+${SKILL('skill-ok', 'ok')}${SKILL('skill-running', 'running')}${SKILL('skill-preparing', 'preparing')}${SKILL('skill-error', 'error')}${SKILL('skill-stopped', 'stopped')}
+${CORDIS('cordis-run', 'cordis_run', 'ok')}${CORDIS('cordis-stop', 'cordis_stop', 'error')}${CORDIS('cordis-remove', 'cordis_undefine', 'stopped')}
+${CONTEXT('added-tools')}${CONTEXT('outside-context', 'user')}
+${OWNER('unknown', 'data-variant="others" data-tool="third_party_unknown" data-state="ok"', '工具调用', SUMMARY('new plugin tool'))}
+${OWNER('session', 'data-variant="others" data-tool="session_search" data-state="ok"', '搜索会话', SUMMARY('2 条匹配'))}
+${OWNER('agent', 'data-variant="others" data-tool="subagent_fork" data-state="ok"', '委派子代理', SUMMARY('核验范围'))}
+${OWNER('schedule', 'data-variant="others" data-tool="schedule_create" data-state="ok"', '创建提醒', SUMMARY('提醒正文'))}
+${OWNER('prepare', 'data-variant="others" data-tool="tool_load" data-state="preparing"', '工具调用', SUMMARY('tool_load'))}
+${OWNER('nested', 'data-variant="read" data-tool="read" data-state="error"', '读取', SUMMARY('failed outer row') + OWNER('nested-tool', 'data-variant="others" data-tool="third_party_unknown" data-state="ok"', '工具调用', SUMMARY('independent nested row')))}
+` + `
 ${OWNER('read', 'data-variant="read" data-tool="read" data-state="ok"', '读取', SUMMARY('读取说明'))}
 ${OWNER('search', 'data-variant="search" data-tool="grep" data-state="ok"', '搜索', SUMMARY('thinkRainbow'))}
 ${OWNER('edit', 'data-variant="edit" data-tool="edit" data-state="ok"', '编辑', SUMMARY('编辑说明'))}
@@ -118,10 +143,11 @@ try {
     /** 图标、动作名、描述的计算色。 */
     window.colors = id => {
       const owner = document.getElementById(id)
-      const row = owner.matches('[data-sample]') ? owner : owner.querySelector('[data-disclosure-row]')
-      const parts = row.matches('[data-sample]')
-        ? { icon: row.firstElementChild, title: row.lastElementChild.firstElementChild.firstElementChild, summary: row.querySelector('.summary') }
-        : { icon: row.firstElementChild, title: row.children[1].firstElementChild.firstElementChild, summary: row.querySelector('.summary') }
+      const row = owner.matches('[data-sample]') ? owner : owner.querySelector('[data-disclosure-row], :scope > .row')
+      const directTitle = row.querySelector(':scope > .title')
+      const parts = { icon: row.firstElementChild,
+        title: directTitle || row.lastElementChild.firstElementChild.firstElementChild,
+        summary: row.querySelector('.summary') }
       return Object.fromEntries(Object.entries(parts).map(([key, el]) => [key, el === null ? null : getComputedStyle(el).color]))
     }
   })
@@ -139,7 +165,10 @@ try {
   await settle()
 
   // 类别色：图标与动作名上色；描述保持宿主色；动作名略向宿主灰回混。
-  const expected = { read: DARK.read, search: DARK.search, edit: DARK.write, write: DARK.write, bash: DARK.run, think: DARK.think, present: DARK.write }
+  const expected = { read: DARK.read, search: DARK.search, edit: DARK.write, write: DARK.write, bash: DARK.run, think: DARK.think, present: DARK.write,
+    mcp: DARK.tool, ask: DARK.ask, job: DARK.run, todo: DARK.task, session: DARK.session, agent: DARK.agent, schedule: DARK.schedule,
+    'skill-ok': DARK.skill, 'skill-running': DARK.skill, 'skill-preparing': DARK.skill, 'cordis-run': DARK.run,
+    'added-tools': DARK.tool, unknown: DARK.tool, prepare: DARK.tool, 'nested-tool': DARK.tool }
   for (const [id, hex] of Object.entries(expected)) {
     const c = await colors(id)
     assert.equal(c.icon, rgb(hex), `${id} 图标用类别色`)
@@ -149,17 +178,27 @@ try {
     if (c.summary !== null && !['read', 'edit', 'write'].includes(id)) assert.equal(c.summary, HOST, `${id} 描述保持宿主色`)
     else if (c.summary !== null) assert.notEqual(c.summary, rgb(hex), `${id} 摘要不被类别色覆盖`)
   }
-  // 未归类的行（工具调用、提问、任务）保持宿主原色。
-  for (const id of ['mcp', 'ask', 'job', 'todo']) {
-    const c = await colors(id)
-    assert.equal(c.icon, HOST, `${id} 不着色`)
-    assert.equal(c.title, HOST, `${id} 动作名不着色`)
+  // 每个 wire 工具都被命中，且正文/参数不被类别色覆盖；上下文只在聊天 context 节点染色。
+  for (const { tool, key } of CATALOG) {
+    const c = await colors('catalog-' + tool)
+    assert.equal(c.icon, rgb(DARK[key]), `${tool} → ${key}`)
+    assert.notEqual(c.title, HOST, `${tool} 动作名着色`)
+    assert.equal(c.summary, HOST, `${tool} 参数保持宿主色`)
   }
+  assert.equal((await colors('outside-context')).icon, HOST, '相同文案在 user 节点不染')
+  for (const id of ['skill-ok', 'cordis-run']) {
+    assert.equal(await page.locator('#' + id + ' .body').evaluate(el => getComputedStyle(el).color), 'rgb(221, 221, 221)', `${id} 展开正文不被类别色覆盖`)
+  }
+  assert.equal((await colors('skill-error')).icon, rgb(DARK.err))
+  assert.equal((await colors('skill-stopped')).icon, rgb(DARK.warn))
+  assert.equal((await colors('cordis-stop')).icon, rgb(DARK.err))
+  assert.equal((await colors('cordis-remove')).icon, rgb(DARK.warn))
+  assert.equal((await colors('nested')).icon, rgb(DARK.err), '嵌套行外层保持失败色')
   // 失败与中断：换状态色，覆盖类别色；运行中保持类别（宿主自带闪光）。
   assert.equal((await colors('failed')).icon, rgb(DARK.err))
   assert.equal((await colors('readfail')).icon, rgb(DARK.err), '失败覆盖类别色')
   assert.equal((await colors('stopped')).icon, rgb(DARK.warn))
-  assert.equal((await colors('running')).icon, HOST)
+  assert.equal((await colors('running')).icon, rgb(DARK.run))
 
   // 悬停：动作名回到满色。
   await page.hover('#read [data-disclosure-row]')
@@ -188,8 +227,8 @@ try {
   const after = await page.evaluate(() => window.words())
   assert.deepEqual(after.ok, ['done', '已完成', '已完成', '已完成', '已完成', '已完成', '已交付'].sort(), '状态与文字变化后区间同步')
   assert.deepEqual(after.err, ['失败'], '状态不再是失败的行不染，宿主粘连写法“交付失败”仍染')
-  assert.equal((await colors('running')).icon, HOST)
-  assert.equal((await colors('failed')).icon, HOST, '状态恢复后回到宿主色')
+  assert.equal((await colors('running')).icon, rgb(DARK.run))
+  assert.equal((await colors('failed')).icon, rgb(DARK.run), '状态恢复后回到所属类别色')
   await page.evaluate(() => document.getElementById('job').remove())
   assert.equal((await page.evaluate(() => window.words())).ok.length, 6, '行被移除后区间释放')
 
@@ -199,10 +238,30 @@ try {
   }, OWNER('late', 'data-variant="others" data-tool="job_output" data-state="ok"', '读取任务输出', SUMMARY('bash-9 · 已完成')))
   assert.equal((await page.evaluate(() => window.words())).ok.length, 7)
 
-  // 自定义颜色：覆盖类别色与状态词色，其余保持默认；无效或缺失走默认。
-  await page.evaluate(() => window.setConfig({ rowTint: true, rowColors: { dark: { read: '#123456', ok: '#abcdef' } } }))
+  // 工具名/variant 动态变化无需 DOM 装饰，立即重新分类；失败与中断仍最高优先。
+  await page.evaluate(() => { document.getElementById('unknown').dataset.tool = 'session_event_read' })
+  assert.equal((await colors('unknown')).icon, rgb(DARK.session))
+  await page.evaluate(() => { document.getElementById('unknown').dataset.state = 'error' })
+  assert.equal((await colors('unknown')).icon, rgb(DARK.err))
+  await page.evaluate(() => { const el = document.getElementById('unknown'); el.dataset.state = 'stopped'; el.dataset.tool = 'tool_load' })
+  assert.equal((await colors('unknown')).icon, rgb(DARK.warn))
+  await page.evaluate(() => { const el = document.getElementById('unknown'); el.dataset.state = 'ok'; el.dataset.tool = 'third_party_unknown'; el.dataset.variant = 'read' })
+  assert.equal((await colors('unknown')).icon, rgb(DARK.read), 'unknown tool still honours a host-provided semantic variant')
+  await page.evaluate(() => { document.getElementById('unknown').dataset.variant = 'others' })
+  assert.equal((await colors('unknown')).icon, rgb(DARK.tool))
+  // 同一类别映射在浅色主题下也完整生效，不依赖重新扫描。
+  await page.evaluate(() => document.body.removeAttribute('data-ds-dark-theme'))
+  for (const { tool, key } of CATALOG) assert.equal((await colors('catalog-' + tool)).icon, rgb(CP_SETTINGS.ROW_TINTS.light[key]), 'light ' + tool)
+  for (const [id, key] of [['skill-ok', 'skill'], ['cordis-run', 'run'], ['added-tools', 'tool']]) assert.equal((await colors(id)).icon, rgb(CP_SETTINGS.ROW_TINTS.light[key]), 'light custom header ' + id)
+  await page.evaluate(() => document.body.setAttribute('data-ds-dark-theme', ''))
+
+  // 自定义颜色：覆盖新旧类别与状态词色，其余保持默认；缺失走默认。
+  await page.evaluate(() => window.setConfig({ rowTint: true, rowColors: { dark: { read: '#123456', session: '#234567', skill: '#345678', tool: '#456789', ok: '#abcdef' } } }))
   await settle()
   assert.equal((await colors('read')).icon, rgb('#123456'), '自定义类别色生效')
+  assert.equal((await colors('session')).icon, rgb('#234567'), '自定义会话类别色生效')
+  assert.equal((await colors('skill-ok')).icon, rgb('#345678'), '自定义技能卡片色生效')
+  assert.equal((await colors('added-tools')).icon, rgb('#456789'), '自定义上下文提示色生效')
   assert.equal((await colors('search')).icon, rgb(DARK.search), '未自定义的类别保持默认')
   assert.equal(await page.evaluate(() => getComputedStyle(document.getElementById('present'), '::highlight(dshcp-st-ok)').color), rgb('#abcdef'), '自定义状态词色生效')
   await page.evaluate(() => window.setConfig({ rowTint: true }))
@@ -213,7 +272,9 @@ try {
   await page.evaluate(() => window.setConfig({ rowTint: false }))
   await settle()
   assert.equal(await page.evaluate(() => window.stNames()), 0)
-  assert.equal((await colors('read')).icon, HOST)
+  for (const id of ['read', 'mcp', 'ask', 'session', 'agent', 'todo', 'schedule', 'unknown', 'skill-ok', 'skill-error', 'cordis-run', 'added-tools']) {
+    assert.equal((await colors(id)).icon, HOST, `${id} 关闭后恢复宿主色`)
+  }
   assert.ok(!(await page.evaluate(() => document.querySelector('style[data-plugin-css="dsh-code-pill"]').textContent)).includes('::highlight(dshcp-st-'))
 
   // 再次开启后卸载：不留痕迹。

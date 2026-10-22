@@ -20,7 +20,7 @@ DeepSeek Harness 的对话外观插件：行内代码胶囊、语法色与文件
 </div>
 
 > [!NOTE]
-> **本页为 0.6.0 版本文档。** 字体能力分类与搜索、设置页、六套外观预设和自定义选项见 [更新记录](CHANGELOG.md)。main 与 npm 已发布包不自动等同；实际发布状态以 [npm](https://www.npmjs.com/package/dsh-code-pill) 与 [GitHub Releases](https://github.com/KouzakiUmi/dsh-code-pill/releases) 为准。推送 main 只构建验证包，不会自动发布 npm。
+> **本页为 0.7.0 版本文档。** 字体能力分类与搜索、设置页、六套外观预设和自定义选项见 [更新记录](CHANGELOG.md)。main 与 npm 已发布包不自动等同；实际发布状态以 [npm](https://www.npmjs.com/package/dsh-code-pill) 与 [GitHub Releases](https://github.com/KouzakiUmi/dsh-code-pill/releases) 为准。推送 main 只构建验证包，不会自动发布 npm。
 
 ## 快速开始
 
@@ -46,7 +46,7 @@ dsh plugin --profile <profile> add dsh-code-pill
 
 <img src="https://raw.githubusercontent.com/KouzakiUmi/dsh-code-pill/main/assets/feature-rows.png" width="100%" alt="折叠动作行着色前后对比，深色与浅色各一组：读取、搜索、编辑、命令、思考等按类别给图标和动作名上色，失败显示红色，中断显示琥珀色，已完成和已交付等状态词单独着色">
 
-默认关闭，0.6.0 起提供。折叠的工具行按读取、搜索、写入、命令、思考给图标和动作名上色；失败与中断更醒目，“已完成”“已交付”等状态词单独着色。描述保持宿主色，未归类的行保持原样。类别色和状态色都可以在设置页里按浅色／深色自定义。
+默认关闭，基础功能自 0.6.0 起提供。当前源码按读取、搜索、写入、命令、思考、会话、代理、任务、提醒、技能、提问、工具与上下文 12 类给图标和动作名上色，覆盖“加载技能”“搜索会话”“已添加工具”等原先未染色的行，未知插件工具也有兜底色。失败与中断更醒目，“已完成”“已交付”等状态词单独着色。描述与参数保持宿主色；类别色和状态色都可按浅色／深色自定义。完整分类见 [设置指南](docs/settings.md)。
 
 ### 思考文字彩虹刷入（可选）
 
@@ -92,7 +92,7 @@ dsh plugin --profile <profile> add dsh-code-pill
 - **颜色**：分别调整深浅主题的六个文字角色、胶囊底色和徽章颜色。
 - **排版**：字号比例、圆角、水平内边距、底色强度。
 - **显示**：行内语法着色、文件标记、聊天文件路径、思考文字彩虹刷入、折叠动作行着色，以及保留宿主／使用当前色板的代码块配色。
-- **管理**：保存并应用、取消草稿、恢复默认、JSON 导入导出。
+- **管理**：保存并应用、取消草稿、恢复默认、JSON 导入导出。当前源码的保存操作栏吸附在设置滚动区域顶部，滚到下方仍可保存；窄屏自动换行。
 
 **代码外观草稿不改变聊天。** 字体 Tab 保留 Font Lab 的即时应用模式，支持全局／等宽字体、界面缩放、会话字号、逐部位覆盖、自定义选择器和 CSS 导出。首次读取原 Font Lab 的本浏览器配置，之后独立保存，不修改原插件配置。
 

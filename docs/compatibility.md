@@ -1,6 +1,6 @@
 # 兼容性与权限边界
 
-本文针对 **0.6.0** 的代码。六套预设、自定义色板、双 Tab 设置页、图标、字体与持久化能力自 `0.3.0` 起提供，字体能力分类与搜索自 `0.4.0` 起提供；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
+本文针对 **0.7.0** 的代码。六套预设、自定义色板、双 Tab 设置页、图标、字体与持久化能力自 `0.3.0` 起提供，字体能力分类与搜索自 `0.4.0` 起提供；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
 
 ## 已知证据，不扩大结论
 
@@ -9,7 +9,7 @@
 | 历史 DSH 集成 | 原有行内渲染在 Core `0.2.1-alpha.1` / Cordis `4.0.5-alpha.1` 上有历史验证；包清单仅标记该 Core compatible | 当前新增设置页已在该 Core 整个真实现场重新验证；其他 Core 自动兼容 |
 | 当前宿主现场 | 桌面 Profile 安装本地未发布包、独立 Chrome 连接真实宿主（Core `0.2.1-alpha.2`）：设置 slots 入口、草稿隔离、保存实际聊天色板、三个真实文件节点的图标、语法关闭后 Range 清空、导出 JSON、刷新恢复均通过；41 个真实聊天 code 子节点身份未被改写；深/浅标题颜色与宿主正文对齐 | 生产 Electron 窗口本身已被直接操作；npm `0.2.0` 已包含这些功能 |
 | 浏览器渲染 | 真实 Chrome 测试检查最终 bundle 的颜色、Highlight ranges、徽章、主题、动态节点与卸载；新增设置/动态测试已在本机通过 | 所有浏览器、桌面壳、宿主主题都通过；测试夹具等于生产消息页 |
-| 设置页测试 | [settings-browser.test.mjs](../tests/settings-browser.test.mjs) 使用真实 React/ReactDOM，Button、Switch、Input 和 slots 为结构测试替身 | 控件样式等于生产宿主真实控件；完整设置导航、生产 Shiki 高亮器已端到端验证 |
+| 设置页测试 | [settings-browser.test.mjs](../tests/settings-browser.test.mjs) 使用真实 React/ReactDOM，Button、Switch、Input 和 slots 为结构测试替身；新增保存栏验证使用嵌套 overflow 滚动容器，检查宽屏／窄屏下滚到下方和表单末尾仍能保存 | 控件样式等于生产宿主真实控件；顶部吸附已部署到生产实例；完整设置导航、生产 Shiki 高亮器已端到端验证 |
 | Cordis 生命周期 | 已使用本机实际安装的 Cordis 入口运行 [client-smoke.test.mjs](../tests/client-smoke.test.mjs)，真实 fiber 加载与卸载检查通过；DOM 为最小桩 | 此测试覆盖真实 settings.section、宿主所有服务、热更新的全部现场行为 |
 | 当前 DSH 安装 | 上述现场验证使用本地未发布的工作区包；通过桌面配套 CLI 更新 desktop 的插件来源与 lockfile，未修改宿主安装代码、未手改 Profile 配置；验证页临时外观已恢复 | npm 包已发布；其他 Profile 已部署；所有客户端缓存均已刷新 |
 
@@ -20,6 +20,8 @@
 Font Lab 合并版本的浏览器内行为已由隔离 Chrome + React 测试覆盖；字体族读取授权、生产终端与 CSS zoom 弹窗仍缺现场验收证据，不能据此宣称已在所有宿主或其余 Profile 部署。
 
 聊天路径适配（0.5.0）基于本地宿主源码结构，已在隔离 Chrome 中验证路径、点击保持、动态归属、配置与卸载；未进行真实宿主整页验收。少量 CSS-module 局部名回退仍需随宿主升级回归。
+
+当前动作行分类适配依据本次核对的宿主标准 DisclosureRow、技能／Cordis 独立头部及聊天 context 标记；隔离测试覆盖全部已映射工具、未知工具兜底与双主题。这不代表任意第三方插件自建卡片也自动兼容；没有这些语义标记和头部结构时不猜测正文。新增分类和顶部保存栏的本地构建未据此扩大 Core 兼容声明，也不意味着已经安装到正在运行的实例。
 
 思考文字彩虹刷入依赖 CSS Custom Highlight API、`StaticRange` 与 `color-mix()`；缺任一能力时该选项静默不生效。本机验证使用 Chrome 155（隔离页面，复刻宿主思考行与流式 Markdown 的 DOM 契约）；本机桌面壳的 Chromium 版本来自安装包字符串，不等于已在其真实聊天页验收。
 

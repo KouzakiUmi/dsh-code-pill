@@ -33,18 +33,32 @@ var CONFIG_KEYS = ['version', 'preset', 'syntax', 'marker', 'toolPath', 'thinkRa
 var ROLE_KEYS = ['plain', 'kwc', 'kwd', 'str', 'com', 'num'];
 
 /**
- * 折叠动作行的颜色：类别色（读取/搜索/写入/命令/思考）只给图标与动作名上色，描述保持宿主色；
- * 状态色（ok/warn/err）用于失败/中断行的图标与动作名，以及摘要末尾的完成状态词。
- * 类别色刻意避开红、绿、琥珀，以免与状态色混淆；颜色只是辅助线索，图标形状与文字才是主要信息。
- * 宿主的状态色令牌在浅色主题下对白底对比度不足（绿 2.3:1），所以状态色在这里单独定义。
- * 内置色值经 tests/settings.test.mjs 按白色与 #1e1e1e 页面核验 ≥ 4.5:1。
+ * 动作类别的唯一映射：以 data-variant / data-tool 判定，不解析本地化标题或参数。
+ * 未知 MCP/插件工具用 tool 兜底；新工具不会因没进入宿主的五种 variant 而漏色。
+ * tools 用空格分隔，供 CSS 生成与逐工具回归共用；具体示例同时供设置预览使用。
  */
+var ROW_CATEGORIES = [
+  { key: 'read', label: '读取', variants: 'read', tools: 'read read_image web_fetch cordis_package_inspect cordis_runtime_inspect cordis_inspect_list cordis_inspect_query cordis_inspect_self load_workspace_dependencies', title: '读取', description: '设置说明' },
+  { key: 'search', label: '搜索', variants: 'search', tools: 'glob grep web_search lsp', title: '查找文件', description: 'src/**' },
+  { key: 'write', label: '写入／编辑／交付', variants: 'write edit', tools: 'write edit present', title: '编辑', description: '路径与描述' },
+  { key: 'run', label: '命令与终端', variants: 'bash code', tools: 'bash pwsh run_code job_list job_output job_kill terminal_open terminal_read terminal_list terminal_send terminal_signal terminal_close terminal_resize cordis_run cordis_stop cordis_undefine', title: '运行命令', description: '核对测试结果' },
+  { key: 'think', label: '思考', variants: 'think', tools: '', title: '思考', description: '核对实现与验证范围' },
+  { key: 'session', label: '会话与事件', variants: '', tools: 'session_search session_trace session_event_search session_event_read session_event_trace', title: '搜索会话', description: '2 条匹配' },
+  { key: 'agent', label: '代理与编排', variants: '', tools: 'subagent subagent_fork list_agents list_subagent_models send_message interrupt_agent spawn_teammate wait_agent workflow ralph', title: '委派子代理', description: '核验回归覆盖' },
+  { key: 'task', label: '任务与目标', variants: '', tools: 'todo_write create_goal get_goal update_goal team_task_create team_task_get team_task_update team_task_list', title: '更新任务清单', description: '核对当前进度' },
+  { key: 'schedule', label: '定时与提醒', variants: '', tools: 'schedule_create schedule_list schedule_update schedule_delete', title: '创建提醒', description: '检查任务结果' },
+  { key: 'skill', label: '技能', variants: '', tools: 'skill', title: '加载技能', description: 'engineering-delivery' },
+  { key: 'ask', label: '提问与确认', variants: '', tools: 'ask_user_question exit_plan_mode', title: '提问', description: '确认实施范围' },
+  { key: 'tool', label: '工具与上下文', variants: 'others', tools: 'tool_list tool_search tool_load cordis_define', title: '工具调用', description: 'MCP／插件工具、已添加工具提示' },
+];
+/** 类别色只给图标与动作名上色；失败/中断优先，描述保留宿主色。 */
 var ROW_TINTS = {
-  light: { read: '#2563b8', search: '#0e7a86', write: '#7b45b8', run: '#b0397f', think: '#6b6f9a', ok: '#1a7f37', warn: '#9a6700', err: '#c62828' },
-  dark: { read: '#6ea8fe', search: '#4fc7cf', write: '#b894f0', run: '#ec8ac3', think: '#9aa0d6', ok: '#4ecb7a', warn: '#e3a548', err: '#f26d6d' },
+  light: { read: '#2563b8', search: '#0e7a86', write: '#7b45b8', run: '#b0397f', think: '#6b6f9a', session: '#3c7185', agent: '#8852a8', task: '#6458a6', schedule: '#62668b', skill: '#476e8f', ask: '#8b4d7c', tool: '#536ba8', ok: '#1a7f37', warn: '#9a6700', err: '#c62828' },
+  dark: { read: '#6ea8fe', search: '#4fc7cf', write: '#b894f0', run: '#ec8ac3', think: '#9aa0d6', session: '#7cbdd1', agent: '#d0a0ec', task: '#b3a5ef', schedule: '#a6aed1', skill: '#91b9db', ask: '#dba0ca', tool: '#9eb8ef', ok: '#4ecb7a', warn: '#e3a548', err: '#f26d6d' },
 };
-/** 行颜色的键：5 个类别 + 3 个状态（顺序即设置页与导出顺序）。 */
-var ROW_KEYS = ['read', 'search', 'write', 'run', 'think', 'ok', 'warn', 'err'];
+var ROW_KEYS = ROW_CATEGORIES.map(function (category) { return category.key; }).concat(['ok', 'warn', 'err']);
+var ROW_LABELS = { ok: '完成状态', warn: '中断／警示', err: '失败' };
+ROW_CATEGORIES.forEach(function (category) { ROW_LABELS[category.key] = category.label; });
 
 /** 彩虹刷入的明度随主题：浅色背景用较深的色，深色背景用较亮的色。 */
 var INK_LIGHTNESS = { light: '48%', dark: '66%' };
@@ -553,6 +567,8 @@ var CP_SETTINGS = {
   ROLE_KEYS: ROLE_KEYS,
   ROW_TINTS: ROW_TINTS,
   ROW_KEYS: ROW_KEYS,
+  ROW_CATEGORIES: ROW_CATEGORIES,
+  ROW_LABELS: ROW_LABELS,
   MARKERS: MARKERS,
   BLOCK_THEMES: BLOCK_THEMES,
   AA_NORMAL: AA_NORMAL,

@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module'
 import { readFileSync, mkdirSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
 import { makeFont } from './fixtures/synthetic-font.mjs'
 const require = createRequire(import.meta.url)
@@ -122,7 +123,7 @@ try {
   assert.equal(await page.locator('.dshcp-settings-header p').evaluate(el => getComputedStyle(el).color), 'rgb(207, 211, 214)', 'dark hints must use host secondary text')
   assert.equal(await page.locator('.dshcp-settings-toolbar').evaluate(el => getComputedStyle(el).backgroundColor), 'rgb(35, 35, 36)', 'top action row uses an existing host background token')
   mkdirSync(new URL('../dist/', import.meta.url), { recursive: true })
-  await page.locator('.dshcp-settings').screenshot({ path: new URL('../dist/settings-dark.png', import.meta.url).pathname.replace(/^\/(\w:)/, '$1') })
+  await page.locator('.dshcp-settings').screenshot({ path: fileURLToPath(new URL('../dist/settings-dark.png', import.meta.url)) })
   await page.getByRole('button', { name: '浅色', exact: true }).click()
   await page.evaluate(() => { document.body.removeAttribute('data-ds-dark-theme'); document.body.style.cssText = 'font:14px system-ui;padding:24px;margin:0;background:white;color:#0f1115;--dsw-alias-bg-layer-1:#f3f4f6;--dsw-alias-label-primary:#0f1115;--dsw-alias-label-primary-foreground:#f9fafb;--dsw-alias-label-secondary:#586071' })
   assert.equal(await page.locator('.dshcp-settings h2').evaluate(el => getComputedStyle(el).color), 'rgb(15, 17, 21)', 'light headings must use primary text, not white inverted foreground')
@@ -131,9 +132,66 @@ try {
   assert.ok(await page.evaluate(() => {
     const toolbar = document.querySelector('.dshcp-settings-toolbar')
     const firstPanel = document.querySelector('.dshcp-panel')
-    return !!(toolbar.compareDocumentPosition(firstPanel) & Node.DOCUMENT_POSITION_FOLLOWING) && getComputedStyle(toolbar).position === 'static'
-  }), 'save actions precede the form and do not float over its controls')
-  await page.locator('.dshcp-settings').screenshot({ path: new URL('../dist/settings-light.png', import.meta.url).pathname.replace(/^\/(\w:)/, '$1') })
+    return !!(toolbar.compareDocumentPosition(firstPanel) & Node.DOCUMENT_POSITION_FOLLOWING)
+      && getComputedStyle(toolbar).position === 'sticky' && getComputedStyle(toolbar).top === '0px'
+  }), 'save actions precede the form and stick to its scrolling pane, not the viewport bottom')
+  // Reproduce the host modal's nested overflow pane. No auto-scroll is allowed when saving.
+  async function stickySave(width, height, theme) {
+    await page.setViewportSize({ width, height })
+    await page.evaluate(() => {
+      window.scrollTo(0, 0)
+      const pane = document.createElement('div')
+      pane.id = 'settings-scroll-pane'
+      pane.style.cssText = 'height:calc(100vh - 96px);max-height:680px;overflow:auto;position:relative'
+      const settings = document.getElementById('settings')
+      settings.before(pane)
+      pane.appendChild(settings)
+    })
+    const toggle = page.getByRole('switch', { name: '折叠动作行着色', exact: true })
+    const previous = await toggle.getAttribute('aria-checked')
+    await toggle.click()
+    const layout = await page.evaluate(() => {
+      const pane = document.getElementById('settings-scroll-pane')
+      const bar = document.querySelector('.dshcp-settings-toolbar')
+      const p = pane.getBoundingClientRect(), b = bar.getBoundingClientRect()
+      return { scroll: pane.scrollTop, top: b.top, paneTop: p.top, bottom: b.bottom, paneBottom: p.bottom,
+        allActionsVisible: Array.from(bar.querySelectorAll('button')).every(button => {
+          const r = button.getBoundingClientRect()
+          return r.left >= p.left && r.right <= p.right && r.top >= p.top && r.bottom <= p.bottom
+            && button.contains(document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2))
+        }) }
+    })
+    assert.ok(layout.scroll > 500, `${theme}/${width}: lower switch scrolls the settings pane`)
+    assert.ok(Math.abs(layout.top - layout.paneTop) < 1, `${theme}/${width}: save bar stays at the pane top`)
+    assert.ok(layout.bottom < layout.paneBottom, `${theme}/${width}: bar does not fill the pane`)
+    assert.ok(layout.allActionsVisible, `${theme}/${width}: every action is visible and hit-testable, including wrapped narrow layout`)
+    await page.getByRole('button', { name: '保存并应用', exact: true }).click({ scroll: 'none' })
+    await page.waitForFunction(expected => JSON.parse(localStorage.getItem('dsh-code-pill.settings.v1')).rowTint === expected, previous !== 'true')
+    assert.equal(await page.locator('#settings-scroll-pane').evaluate(el => el.scrollTop), layout.scroll, 'saving does not jump back to the top')
+    await page.screenshot({ path: fileURLToPath(new URL(`../dist/settings-sticky-${theme}-${width}.png`, import.meta.url)) })
+    // Also keep the toolbar reachable at the very bottom, then restore the original draft/config.
+    await page.locator('#settings-scroll-pane').evaluate(el => { el.scrollTop = el.scrollHeight })
+    assert.ok(await page.evaluate(() => {
+      const pane = document.getElementById('settings-scroll-pane').getBoundingClientRect()
+      const bar = document.querySelector('.dshcp-settings-toolbar').getBoundingClientRect()
+      return Math.abs(pane.top - bar.top) < 1
+    }), 'save bar stays pinned at the end of the form')
+    await toggle.click()
+    await page.getByRole('button', { name: '保存并应用', exact: true }).click({ scroll: 'none' })
+    assert.equal(await toggle.getAttribute('aria-checked'), previous)
+    await page.evaluate(() => {
+      const pane = document.getElementById('settings-scroll-pane')
+      pane.before(document.getElementById('settings'))
+      pane.remove()
+      window.scrollTo(0, 0)
+    })
+  }
+  await stickySave(900, 1100, 'light')
+  await page.evaluate(() => { document.body.setAttribute('data-ds-dark-theme', ''); document.body.style.cssText += ';background:#28282a;color:#f9fafb;--dsw-alias-bg-layer-1:#232324;--dsw-alias-label-primary:#f9fafb;--dsw-alias-label-secondary:#cfd3d6' })
+  await stickySave(390, 900, 'dark')
+  await page.evaluate(() => { document.body.removeAttribute('data-ds-dark-theme'); document.body.style.cssText = 'font:14px system-ui;padding:24px;margin:0;background:white;color:#0f1115;--dsw-alias-bg-layer-1:#f3f4f6;--dsw-alias-label-primary:#0f1115;--dsw-alias-label-secondary:#586071' })
+  await page.setViewportSize({ width: 900, height: 1100 })
+  await page.locator('.dshcp-settings').screenshot({ path: fileURLToPath(new URL('../dist/settings-light.png', import.meta.url)) })
   await page.setViewportSize({ width: 390, height: 900 })
   assert.deepEqual(await rowSizes(), [2, 2, 2], 'narrow layout keeps a balanced 2x3 grid')
   assert.ok(await page.evaluate(() => document.querySelector('.dshcp-settings').scrollWidth <= document.querySelector('.dshcp-settings').clientWidth + 1), 'narrow settings page should not overflow')
@@ -213,9 +271,9 @@ try {
   let fontConfig = await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-code-pill.fonts.v1')))
   assert.equal(fontConfig.uiScale, 120)
   assert.equal(fontConfig.contentSize, '18')
-  await page.locator('.dfl-root').screenshot({ path: new URL('../dist/fonts-light.png', import.meta.url).pathname.replace(/^\/(\w:)/, '$1') })
+  await page.locator('.dfl-root').screenshot({ path: fileURLToPath(new URL('../dist/fonts-light.png', import.meta.url)) })
   await page.evaluate(() => { document.body.setAttribute('data-ds-dark-theme', ''); document.body.style.cssText += ';background:#28282a;color:#f9fafb;--dsw-alias-label-primary:#f9fafb;--dsw-alias-label-secondary:#cfd3d6;--dsw-alias-label-tertiary:#a0a4aa;--dsw-alias-bg-layer-1:#232324;--dsw-alias-border-l1:#555;--dsw-alias-border-l2:#666;--dsw-alias-brand-primary:#f9fafb' })
-  await page.locator('.dfl-root').screenshot({ path: new URL('../dist/fonts-dark.png', import.meta.url).pathname.replace(/^\/(\w:)/, '$1') })
+  await page.locator('.dfl-root').screenshot({ path: fileURLToPath(new URL('../dist/fonts-dark.png', import.meta.url)) })
   assert.ok(await page.evaluate(() => document.querySelector('.dfl-root').scrollWidth <= document.querySelector('.dfl-root').clientWidth + 1), 'font tab should not overflow on narrow screens')
   await page.getByRole('button', { name: '×', exact: true }).click()
   fontConfig = await page.evaluate(() => JSON.parse(localStorage.getItem('dsh-code-pill.fonts.v1')))
@@ -274,7 +332,13 @@ try {
   assert.equal(await rowHex.inputValue(), '#112233', 'invalid hex restores the previous value')
   await page.getByRole('button', { name: '保存并应用', exact: true }).click()
   await page.waitForFunction(() => JSON.parse(localStorage.getItem('dsh-code-pill.settings.v1')).rowColors.light.read === '#112233')
-  assert.ok(await page.locator('.dshcp-preview-rows .dshcp-preview-row').count() >= 8, 'preview shows sample folded rows')
+  assert.equal(await page.locator('.dshcp-preview-rows .dshcp-preview-row').count(), CP_SETTINGS.ROW_CATEGORIES.length + 3, 'preview shows every category and status sample')
+  assert.equal(await page.locator('[aria-label$="行颜色"]').count(), CP_SETTINGS.ROW_KEYS.length, 'every category/status has a colour picker')
+  const skillHex = page.getByLabel('技能行十六进制', { exact: true })
+  await skillHex.fill('#654321')
+  await skillHex.blur()
+  await page.getByRole('button', { name: '保存并应用', exact: true }).click()
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem('dsh-code-pill.settings.v1')).rowColors.light.skill === '#654321')
   await page.getByRole('button', { name: '恢复行颜色默认', exact: true }).click()
   assert.equal(await rowHex.inputValue(), CP_SETTINGS.ROW_TINTS.light.read, 'reset restores default row colours')
   await page.getByRole('button', { name: '取消更改', exact: true }).click()

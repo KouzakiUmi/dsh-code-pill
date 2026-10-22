@@ -105,7 +105,9 @@ html body [data-path-label].dshcp-tool-path span { color: inherit !important; }
 .dshcp-slider input { width: 100%; accent-color: var(--dsw-alias-brand-primary, #916200); }
 .dshcp-settings summary { cursor: pointer; font-size: 12px; font-weight: 600; }
 .dshcp-settings textarea { width: 100%; min-height: 140px; resize: vertical; color: inherit; background: var(--dsw-alias-bg-layer-1, transparent); border: 1px solid var(--dsw-alias-border-l4, #8884); border-radius: 6px; padding: 10px; margin: 10px 0; font: inherit; font-size: 12px; }
-.dshcp-settings-toolbar { padding: 12px; margin-bottom: 14px; background: var(--dsw-alias-bg-layer-1, Canvas); border: 1px solid var(--dsw-alias-border-l4, #8883); border-radius: 8px; flex-wrap: wrap; }
+/* Keep explicit save actions in the host's scrolling settings pane, not at the viewport bottom. */
+.dshcp-settings-toolbar { position: sticky; top: 0; z-index: 2; padding: 12px; margin-bottom: 14px; background: var(--dsw-alias-bg-layer-1, Canvas); border: 1px solid var(--dsw-alias-border-l4, #8883); border-radius: 8px; flex-wrap: wrap; }
+.dshcp-settings-toolbar > [role='status'] { min-width: 0; overflow-wrap: anywhere; }
 .dshcp-settings :focus-visible { outline: 2px solid var(--dsw-alias-brand-primary, #916200); outline-offset: 3px; }
 @media (max-width: 480px) { .dshcp-preset-grid { grid-template-columns: repeat(2,minmax(0,1fr)); } .dshcp-panel { padding: 12px; } .dshcp-slider-grid { grid-template-columns: 1fr; } .dshcp-settings-header { align-items: flex-start; } }
 @media (forced-colors: active) { code.dshcp-pill, .dshcp-tool-path { outline: 1px solid CanvasText; } .dshcp-preset[aria-pressed='true'] { outline: 2px solid Highlight; } }

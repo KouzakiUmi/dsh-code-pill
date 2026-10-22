@@ -1,8 +1,8 @@
 /**
  * 折叠动作行着色：让「图标 + 动作 + 完成状态」一眼能分辨。
  *
- * 宿主所有折叠行（读取/搜索/写入/命令/思考/交付文件/任务…）都由 DisclosureRow 渲染，
- * 行根带 data-variant / data-tool / data-state。因此：
+ * 标准折叠行由 DisclosureRow 渲染，技能与 Cordis 执行有独立头部，
+ * 行根带 data-variant / data-tool / data-state；上下文提示按聊天 flow 定位。因此：
  * - 类别与状态着色是纯 CSS，选择器只依赖宿主的语义属性与 DisclosureRow 的固定结构，
  *   不需要观察器，也不碰任何宿主节点；
  * - 摘要末尾的完成状态词（已完成、已交付…）是文本的一部分，只能用 CSS Custom Highlight 给
@@ -34,19 +34,33 @@ function createRowTint(root, getConfig) {
 			&& typeof CSS !== 'undefined' && CSS.highlights != null;
 	}
 
-	/** 类别/状态着色规则；开关关闭时不注入。 */
+	/** 类别/状态着色规则；开关关闭时不注入，不修改宿主属性或子节点。 */
 	function css() {
-		var lead = [ROW + ' > :first-child', BASH + ' > :first-child'];
-		var title = [ROW + ' > :nth-child(2) > :first-child > :first-child', BASH + ' > :last-child > :first-child > :first-child'];
-		var hoverTitle = [ROW + ':hover > :nth-child(2) > :first-child > :first-child', BASH + ':hover > :last-child > :first-child > :first-child'];
+		// 技能有独立卡片；工具新增提示没有 data-tool/state，只能按已核实的聊天 context 位置识别。
+		var skill = '[data-tool="skill"][data-state] > div:first-of-type';
+		var context = '[data-chat-flow-kind="context"] > [data-slot="conversation.chat.node"] > div > [data-disclosure-header] > [data-disclosure-row]';
+		var cordis = ':is([data-tool="cordis_run"], [data-tool="cordis_stop"], [data-tool="cordis_undefine"])[data-state] > div:first-of-type';
+		var lead = [ROW + ' > :first-child', BASH + ' > :first-child', skill + ' > span:first-child', context + ' > :first-child', cordis + ' > span:first-child'];
+		var title = [ROW + ' > :nth-child(2) > :first-child > :first-child', BASH + ' > :last-child > :first-child > :first-child',
+			skill + ' > span:last-child > :first-child > :first-child', context + ' > :nth-child(2) > :first-child > :first-child', cordis + ' > span:nth-child(2)'];
+		var hoverTitle = [ROW + ':hover > :nth-child(2) > :first-child > :first-child', BASH + ':hover > :last-child > :first-child > :first-child',
+			skill + ':hover > span:last-child > :first-child > :first-child', context + ':hover > :nth-child(2) > :first-child > :first-child', cordis + ':hover > span:nth-child(2)'];
 		var out = [
-			'/* 类别色变量不向内层继承；未归类的行（工具调用、提问等）保持宿主原色。 */',
-			OWNER + ' { --dshcp-row-tint: initial; }',
-			'[data-variant="read"][data-state] { --dshcp-row-tint: var(--dshcp-row-read); }',
-			'[data-variant="search"][data-state] { --dshcp-row-tint: var(--dshcp-row-search); }',
-			':is([data-variant="write"], [data-variant="edit"], [data-tool="present"])[data-state] { --dshcp-row-tint: var(--dshcp-row-write); }',
-			':is([data-variant="bash"], [data-variant="code"])[data-state] { --dshcp-row-tint: var(--dshcp-row-run); }',
-			'[data-variant="think"][data-state] { --dshcp-row-tint: var(--dshcp-row-think); }',
+			// 每个 owner 重设变量，防止嵌套工具行继承外层类别/失败色；未知工具有明确兜底。
+			OWNER + ' { --dshcp-row-tint: var(--dshcp-row-tool); }',
+			context + ' { --dshcp-row-tint: var(--dshcp-row-tool); }',
+		];
+		function rule(selectors, key) {
+			if (selectors.length > 0) out.push(':is(' + selectors.join(', ') + ')[data-state] { --dshcp-row-tint: var(--dshcp-row-' + key + '); }');
+		}
+		// 先按通用 variant 分类，再按 wire 工具名细分（会话/任务等宿主仍叫 others）。
+		CP_SETTINGS.ROW_CATEGORIES.forEach(function (category) {
+			rule(category.variants.split(/\s+/).filter(Boolean).map(function (variant) { return '[data-variant="' + variant + '"]'; }), category.key);
+		});
+		CP_SETTINGS.ROW_CATEGORIES.forEach(function (category) {
+			rule(category.tools.split(/\s+/).filter(Boolean).map(function (tool) { return '[data-tool="' + tool + '"]'; }), category.key);
+		});
+		out.push(
 			OWNER.replace('[data-state]', '[data-state="error"]') + ' { --dshcp-row-tint: var(--dshcp-row-err); }',
 			OWNER.replace('[data-state]', '[data-state="stopped"]') + ' { --dshcp-row-tint: var(--dshcp-row-warn); }',
 			lead.join(',\n') + ' { color: var(--dshcp-row-tint); }',
@@ -55,8 +69,8 @@ function createRowTint(root, getConfig) {
 			hoverTitle.join(',\n') + ' { color: var(--dshcp-row-tint); }',
 			'::highlight(' + NAMES.ok + ') { color: var(--dshcp-row-ok); }',
 			'::highlight(' + NAMES.warn + ') { color: var(--dshcp-row-warn); }',
-			'::highlight(' + NAMES.err + ') { color: var(--dshcp-row-err); }',
-		];
+			'::highlight(' + NAMES.err + ') { color: var(--dshcp-row-err); }'
+		);
 		return out.join('\n');
 	}
 
