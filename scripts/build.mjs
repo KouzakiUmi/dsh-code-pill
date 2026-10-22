@@ -26,6 +26,8 @@ const cssLiteral = '`' + css
 // replace 用回调形式，避免 tokenizer 源码里的 $ 序列被当作替换模式。
 const out = template
   .replace('/* __TOKENIZER__ */', () => tokenizer)
+  .replace('/* __ROW_TINT__ */', () => readFileSync(join(root, 'src/row-tint.js'), 'utf8'))
+  .replace('/* __THINK_INK__ */', () => readFileSync(join(root, 'src/think-ink.js'), 'utf8'))
   .replace('/* __PATH_RENDERER__ */', () => readFileSync(join(root, 'src/path-renderer.js'), 'utf8'))
   .replace('/* __SETTINGS_CORE__ */', () => settingsCore)
   .replace('/* __FONT_CORE__ */', () => readFileSync(join(root, 'src/font-catalog.cjs'), 'utf8') + '\n' + readFileSync(join(root, 'src/font-core.cjs'), 'utf8'))
@@ -33,7 +35,7 @@ const out = template
   .replace('/* __SETTINGS_UI__ */', () => settingsUI)
   .replace('/* __CSS__ */', () => 'var CSS_TEXT = ' + cssLiteral + ';')
 
-if (/__(?:TOKENIZER|PATH_RENDERER|SETTINGS_CORE|SETTINGS_UI|FONT_CORE|FONT_UI|CSS)__/.test(out)) {
+if (/__(?:TOKENIZER|PATH_RENDERER|THINK_INK|ROW_TINT|SETTINGS_CORE|SETTINGS_UI|FONT_CORE|FONT_UI|CSS)__/.test(out)) {
   throw new Error('placeholder replacement failed')
 }
 

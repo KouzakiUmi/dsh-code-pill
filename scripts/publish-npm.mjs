@@ -24,7 +24,7 @@ if (existing !== null) {
   const duplicate = /Cannot publish over previously (?:published|staged) version|cannot publish over the previously published versions/i.test(r.stderr);
   if (r.status !== 0 && !duplicate) throw Error('npm publish failed');
   let visible = null;
-  for (let i = 0; i < 6; i++) {
+  for (let i = 0; i < 24; i++) {
     visible = inspect();
     if (visible !== null) break;
     await new Promise(resolve => setTimeout(resolve, 10000));

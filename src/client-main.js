@@ -26,6 +26,10 @@ window.__ModuleLoader__.load({
 
 		/* __PATH_RENDERER__ */
 
+		/* __THINK_INK__ */
+
+		/* __ROW_TINT__ */
+
 		var PLUGIN_ID = "dsh-code-pill";
 		var HIGHLIGHT_KEYS = ["kwc", "kwd", "str", "com", "num", "fn", "typ", "cst", "prm"];
 		// 配置文件类徽章使用独立图标形状（styles.css 的 [data-dshcp-icon="config"]）。
@@ -67,6 +71,8 @@ window.__ModuleLoader__.load({
 			var codeClasses = new WeakMap();
 			// 工具行路径：待扫描的行根与已装饰的路径宿主。
 			var paths = createPathRenderer(root, function () { return config; });
+			var ink = createThinkInk(root, function () { return config; });
+			var rows = createRowTint(root, function () { return config; });
 			var scheduled = false;
 			var rafId = 0;
 			var config;
@@ -187,6 +193,10 @@ window.__ModuleLoader__.load({
 				for (var code of node.querySelectorAll("code")) callback(code);
 			}
 
+			// 思考文字彩虹刷入关心的语义属性：运行态、行类型与展开正文/预览摘要标记。
+			// 折叠行着色关心的属性：行状态与类别。
+			var ROW_ATTRS = ["data-state", "data-variant", "data-tool"];
+			var INK_ATTRS = ["data-state", "data-variant", "data-streaming", "data-markdown-variant"];
 			var observer = new MutationObserver(function (mutations) {
 				paths.beginBatch();
 				for (var m of mutations) {
@@ -195,6 +205,24 @@ window.__ModuleLoader__.load({
 						if (hostClasses(m.oldValue) === hostClasses(m.target.getAttribute("class")) && paths.isOwnClass(m.target)) continue;
 						// 行内管线只写插件 class，结构/文本变化另有队列。
 						if (m.target.tagName === "CODE" && codeClasses.has(m.target) && codeClasses.get(m.target) === m.target.getAttribute("class") && hostClasses(m.oldValue) === hostClasses(m.target.getAttribute("class"))) continue;
+					}
+					if (m.type === "attributes") {
+						if (INK_ATTRS.indexOf(m.attributeName) !== -1) ink.queueTree(m.target);
+						if (ROW_ATTRS.indexOf(m.attributeName) !== -1) rows.queueTree(m.target);
+					} else if (m.type === "characterData") {
+						ink.queueText(m.target);
+						rows.queueText(m.target);
+					}
+					else if (m.type === "childList") {
+						for (var inkAdded of m.addedNodes) {
+							if (inkAdded.nodeType === 1) {
+								ink.queueTree(inkAdded);
+								rows.queueTree(inkAdded);
+							} else if (inkAdded.nodeType === 3) {
+								ink.queueText(inkAdded);
+								rows.queueText(inkAdded);
+							}
+						}
 					}
 					paths.queue(m.target);
 					if (m.type === "attributes") {
@@ -219,6 +247,9 @@ window.__ModuleLoader__.load({
 						}
 					}
 				}
+				// 彩虹刷入要在同一微任务里登记新文字：晚到下一帧会漏掉一帧原色。
+				ink.flush();
+				rows.flush();
 				schedule();
 			});
 
@@ -229,7 +260,9 @@ window.__ModuleLoader__.load({
 				var next = store && typeof store.getSnapshot === "function" ? store.getSnapshot() : undefined;
 				config = typeof CP_SETTINGS !== "undefined" ? CP_SETTINGS.normalize(next)
 					: { syntax: true, marker: "label" };
-				style.textContent = CSS_TEXT + "\n" + (typeof CP_SETTINGS !== "undefined" ? CP_SETTINGS.css(config) : "");
+				style.textContent = CSS_TEXT + "\n" + (typeof CP_SETTINGS !== "undefined" ? CP_SETTINGS.css(config) : "")
+					+ (config.thinkRainbow === true ? "\n" + ink.css() : "")
+					+ (config.rowTint === true ? "\n" + rows.css() : "");
 				// 配置变化强制重跑：syntax=false 立即摘除 Range，pill 始终保留。
 				for (var code of Array.from(decorated)) {
 					dropRanges(code);
@@ -237,12 +270,14 @@ window.__ModuleLoader__.load({
 				}
 				for (var initial of root.querySelectorAll("code")) queue(initial, true);
 				paths.configure();
+				ink.configure();
+				rows.configure();
 				schedule();
 			}
 
 			configure();
 			observer.observe(root, { childList: true, characterData: true, subtree: true, attributes: true, attributeOldValue: true,
-				attributeFilter: ["class", "contenteditable", "data-dshcp-preview", "data-message-attachments", "data-disclosure-row", "data-code-block-banner", "data-ref-chip", "data-tool", "data-variant", "data-state", "data-chat-flow", "data-chat-flow-kind", "data-search", "data-read", "data-diff", "data-terminal", "data-path-label", "title", "href"] });
+				attributeFilter: ["class", "contenteditable", "data-dshcp-preview", "data-message-attachments", "data-disclosure-row", "data-code-block-banner", "data-ref-chip", "data-tool", "data-variant", "data-state", "data-chat-flow", "data-chat-flow-kind", "data-search", "data-read", "data-diff", "data-terminal", "data-path-label", "data-streaming", "data-markdown-variant", "title", "href"] });
 			if (store && typeof store.subscribe === "function") off = store.subscribe(configure);
 
 			return function () {
@@ -253,6 +288,8 @@ window.__ModuleLoader__.load({
 				if (rafId) cancelAnimationFrame(rafId);
 				pending.clear();
 				paths.dispose();
+				ink.dispose();
+				rows.dispose();
 				for (var code of Array.from(decorated)) cleanupCode(code);
 				snapshots.clear();
 				style.remove();

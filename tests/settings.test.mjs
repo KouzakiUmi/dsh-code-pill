@@ -50,6 +50,9 @@ test('defaults: exact default shape with direct palette objects', () => {
     syntax: true,
     marker: 'label',
     toolPath: true,
+    thinkRainbow: false,
+    rowTint: false,
+    rowColors: { light: { ...CP_SETTINGS.ROW_TINTS.light }, dark: { ...CP_SETTINGS.ROW_TINTS.dark } },
     fontScale: 0.94,
     radius: 4,
     padding: 0.25,
@@ -158,6 +161,79 @@ test('normalize: toolPath is a strict boolean', () => {
   throws(() => CP_SETTINGS.normalize({ version: 1, toolPath: 'yes' }), /toolPath/)
   assert.equal(CP_SETTINGS.normalize({ version: 1 }).toolPath, true)
   assert.equal(CP_SETTINGS.normalize({ version: 1, toolPath: false }).toolPath, false)
+})
+
+test('normalize: thinkRainbow is a strict boolean and defaults to off', () => {
+  throws(() => CP_SETTINGS.normalize({ version: 1, thinkRainbow: 'yes' }), /thinkRainbow/)
+  assert.equal(CP_SETTINGS.normalize({ version: 1 }).thinkRainbow, false)
+  assert.equal(CP_SETTINGS.normalize({ version: 1, thinkRainbow: true }).thinkRainbow, true)
+  // 预设只管外观，不改行为开关的默认值。
+  assert.equal(CP_SETTINGS.presetConfig('cool').thinkRainbow, false)
+})
+
+test('css: ink lightness follows the theme and is the only ink variable in the base CSS', () => {
+  const css = CP_SETTINGS.css(CP_SETTINGS.defaults())
+  const [light, dark] = css.split('html body[data-ds-dark-theme]')
+  assert.ok(light.includes('--dshcp-ink-l: 48%;'), 'light theme uses a darker ink')
+  assert.ok(dark.includes('--dshcp-ink-l: 66%;'), 'dark theme uses a brighter ink')
+  assert.ok(!css.includes('::highlight(dshcp-ink-'), 'highlight rules are generated only while the option is on')
+})
+
+test('normalize: rowTint is a strict boolean and defaults to off', () => {
+  throws(() => CP_SETTINGS.normalize({ version: 1, rowTint: 1 }), /rowTint/)
+  assert.equal(CP_SETTINGS.normalize({ version: 1 }).rowTint, false)
+  assert.equal(CP_SETTINGS.normalize({ version: 1, rowTint: true }).rowTint, true)
+  assert.equal(CP_SETTINGS.presetConfig('minimal').rowTint, false)
+})
+
+test('row tints: every colour is readable on both page backgrounds and the category hues differ', () => {
+  const pages = { light: '#ffffff', dark: '#1e1e1e' }
+  for (const theme of ['light', 'dark']) {
+    const tints = CP_SETTINGS.ROW_TINTS[theme]
+    assert.deepEqual(Object.keys(tints), ['read', 'search', 'write', 'run', 'think', 'ok', 'warn', 'err'])
+    for (const [kind, hex] of Object.entries(tints)) {
+      assert.ok(CP_SETTINGS.contrast(hex, pages[theme]) >= CP_SETTINGS.AA_NORMAL, theme + ' ' + kind + ' contrast ' + CP_SETTINGS.contrast(hex, pages[theme]).toFixed(2))
+    }
+    assert.equal(new Set(Object.values(tints)).size, Object.keys(tints).length, theme + ' colours are all distinct')
+  }
+})
+
+test('normalize: rowColors accepts partial per-theme overrides and rejects bad input', () => {
+  const custom = CP_SETTINGS.normalize({ version: 1, rowColors: { dark: { read: '#ABCDEF', err: '#112233' } } })
+  assert.equal(custom.rowColors.dark.read, '#abcdef', 'hex is lower-cased')
+  assert.equal(custom.rowColors.dark.err, '#112233')
+  assert.equal(custom.rowColors.dark.search, CP_SETTINGS.ROW_TINTS.dark.search, 'missing keys fall back to defaults')
+  assert.deepEqual(custom.rowColors.light, CP_SETTINGS.ROW_TINTS.light, 'untouched theme keeps defaults')
+  throws(() => CP_SETTINGS.normalize({ version: 1, rowColors: { dark: { read: 'blue' } } }), /rowColors.dark.read/)
+  throws(() => CP_SETTINGS.normalize({ version: 1, rowColors: { dark: { nope: '#112233' } } }), /unknown key "nope"/)
+  throws(() => CP_SETTINGS.normalize({ version: 1, rowColors: { sepia: {} } }), /unknown key "sepia"/)
+  throws(() => CP_SETTINGS.normalize({ version: 1, rowColors: [] }), /rowColors/)
+  throws(() => CP_SETTINGS.normalize({ version: 1, rowColors: { light: 'x' } }), /rowColors.light/)
+  // 导出再导入保持一致；默认值不与常量共享引用。
+  assert.deepEqual(CP_SETTINGS.parse(CP_SETTINGS.stringify(custom)).rowColors, custom.rowColors)
+  const first = CP_SETTINGS.defaults(); first.rowColors.light.read = '#000000'
+  assert.equal(CP_SETTINGS.defaults().rowColors.light.read, CP_SETTINGS.ROW_TINTS.light.read)
+  // 旧版本保存的配置没有 rowColors：补默认。
+  assert.deepEqual(CP_SETTINGS.normalize({ version: 1, syntax: false }).rowColors, CP_SETTINGS.defaults().rowColors)
+  // 预设只管外观，不改行颜色。
+  assert.deepEqual(CP_SETTINGS.presetConfig('cool').rowColors, CP_SETTINGS.defaults().rowColors)
+})
+
+test('css: custom row colours reach the theme variables', () => {
+  const css = CP_SETTINGS.css(CP_SETTINGS.normalize({ version: 1, rowColors: { light: { run: '#010203' }, dark: { ok: '#0a0b0c' } } }))
+  const [light, dark] = css.split('html body[data-ds-dark-theme]')
+  assert.ok(light.includes('--dshcp-row-run: #010203;'))
+  assert.ok(dark.includes('--dshcp-row-ok: #0a0b0c;'))
+  assert.ok(!dark.includes('#010203'))
+})
+
+test('css: row tint variables are emitted per theme', () => {
+  const css = CP_SETTINGS.css(CP_SETTINGS.defaults())
+  const [light, dark] = css.split('html body[data-ds-dark-theme]')
+  for (const kind of Object.keys(CP_SETTINGS.ROW_TINTS.light)) {
+    assert.ok(light.includes('--dshcp-row-' + kind + ': ' + CP_SETTINGS.ROW_TINTS.light[kind] + ';'), 'light ' + kind)
+    assert.ok(dark.includes('--dshcp-row-' + kind + ': ' + CP_SETTINGS.ROW_TINTS.dark[kind] + ';'), 'dark ' + kind)
+  }
 })
 
 test('normalize: numeric ranges enforced', () => {

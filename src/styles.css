@@ -83,6 +83,12 @@ html body [data-path-label].dshcp-tool-path span { color: inherit !important; }
 .dshcp-preview { border: 1px solid #8883; border-radius: 8px; padding: 14px 16px; margin-bottom: 16px; font-size: 14px; line-height: 1.8; overflow-wrap: anywhere; }
 .dshcp-preview-caption { font-size: 10px; opacity: .7; margin-bottom: 10px; }
 .dshcp-preview p { margin: 8px 0; }
+.dshcp-preview-rows { margin: 12px 0 0; font-size: 13px; line-height: 24px; }
+.dshcp-preview-row { display: flex; align-items: center; gap: 6px; height: 24px; white-space: nowrap; }
+.dshcp-preview-icon { flex: none; width: 11px; height: 11px; margin: 0 2px; border: 1.5px solid currentColor; border-radius: 3px; }
+.dshcp-preview-desc { overflow: hidden; text-overflow: ellipsis; }
+.dshcp-subheading { margin: 18px 0 8px; }
+.dshcp-subheading h3 { margin-bottom: 0; }
 .dshcp-preview-block { background: #8881; padding: 10px; border-radius: 6px; font-size: 12px; white-space: pre-wrap; margin: 12px 0 0; }
 .dshcp-color-grid { display: grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap: 12px; }
 .dshcp-color-field > span { display: block; font-size: 11px; margin-bottom: 5px; }

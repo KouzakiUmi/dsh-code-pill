@@ -13,8 +13,8 @@
  * 低对比，由 CP_SETTINGS.audit 输出 pass/false 供设置页警告。
  *
  * 配置形状（version 1）：
- *   { version, preset, syntax, marker, toolPath, fontScale, radius, padding,
- *     bgOpacity, blockTheme, light: {palette}, dark: {palette} }
+ *   { version, preset, syntax, marker, toolPath, thinkRainbow, rowTint, rowColors, fontScale, radius,
+ *     padding, bgOpacity, blockTheme, light: {palette}, dark: {palette} }
  * light / dark 直接是 palette 对象（不再包一层 palette 键）。
  */
 
@@ -27,10 +27,27 @@ var MARKERS = ['off', 'label', 'icon', 'both'];
 /** 代码块主题：host 沿用宿主 shiki / preset 由色板生成 shiki 变量。 */
 var BLOCK_THEMES = ['host', 'preset'];
 
-var CONFIG_KEYS = ['version', 'preset', 'syntax', 'marker', 'toolPath', 'fontScale', 'radius', 'padding', 'bgOpacity', 'blockTheme', 'light', 'dark'];
+var CONFIG_KEYS = ['version', 'preset', 'syntax', 'marker', 'toolPath', 'thinkRainbow', 'rowTint', 'rowColors', 'fontScale', 'radius', 'padding', 'bgOpacity', 'blockTheme', 'light', 'dark'];
 
 /** 6 个独立语法角色（fn/typ/cst/prm 渲染层继承 plain，见 DESIGN.md §3）。 */
 var ROLE_KEYS = ['plain', 'kwc', 'kwd', 'str', 'com', 'num'];
+
+/**
+ * 折叠动作行的颜色：类别色（读取/搜索/写入/命令/思考）只给图标与动作名上色，描述保持宿主色；
+ * 状态色（ok/warn/err）用于失败/中断行的图标与动作名，以及摘要末尾的完成状态词。
+ * 类别色刻意避开红、绿、琥珀，以免与状态色混淆；颜色只是辅助线索，图标形状与文字才是主要信息。
+ * 宿主的状态色令牌在浅色主题下对白底对比度不足（绿 2.3:1），所以状态色在这里单独定义。
+ * 内置色值经 tests/settings.test.mjs 按白色与 #1e1e1e 页面核验 ≥ 4.5:1。
+ */
+var ROW_TINTS = {
+  light: { read: '#2563b8', search: '#0e7a86', write: '#7b45b8', run: '#b0397f', think: '#6b6f9a', ok: '#1a7f37', warn: '#9a6700', err: '#c62828' },
+  dark: { read: '#6ea8fe', search: '#4fc7cf', write: '#b894f0', run: '#ec8ac3', think: '#9aa0d6', ok: '#4ecb7a', warn: '#e3a548', err: '#f26d6d' },
+};
+/** 行颜色的键：5 个类别 + 3 个状态（顺序即设置页与导出顺序）。 */
+var ROW_KEYS = ['read', 'search', 'write', 'run', 'think', 'ok', 'warn', 'err'];
+
+/** 彩虹刷入的明度随主题：浅色背景用较深的色，深色背景用较亮的色。 */
+var INK_LIGHTNESS = { light: '48%', dark: '66%' };
 
 var HEX6 = /^#[0-9a-fA-F]{6}$/;
 
@@ -181,6 +198,38 @@ function copyPalette(p) {
   return out;
 }
 
+function copyRowTheme(p) {
+  var out = {};
+  for (var i = 0; i < ROW_KEYS.length; i++) out[ROW_KEYS[i]] = p[ROW_KEYS[i]];
+  return out;
+}
+
+function copyRowColors(p) {
+  return { light: copyRowTheme(p.light), dark: copyRowTheme(p.dark) };
+}
+
+/** 校验（可部分）行颜色：{ light?: {...}, dark?: {...} }；缺失键由 fallback 补齐。返回全新对象。 */
+function normalizeRowColors(input, fallback) {
+  var out = copyRowColors(fallback);
+  if (input === undefined) return out;
+  if (!isPlainObject(input)) {
+    throw new Error('dsh-code-pill settings: rowColors must be an object, got ' + JSON.stringify(input));
+  }
+  assertNoUnknownKeys(input, ['light', 'dark'], 'rowColors');
+  ['light', 'dark'].forEach(function (theme) {
+    if (input[theme] === undefined) return;
+    if (!isPlainObject(input[theme])) {
+      throw new Error('dsh-code-pill settings: rowColors.' + theme + ' must be an object, got ' + JSON.stringify(input[theme]));
+    }
+    assertNoUnknownKeys(input[theme], ROW_KEYS, 'rowColors.' + theme);
+    for (var i = 0; i < ROW_KEYS.length; i++) {
+      var key = ROW_KEYS[i];
+      if (input[theme][key] !== undefined) out[theme][key] = assertHex(input[theme][key], 'rowColors.' + theme + '.' + key);
+    }
+  });
+  return out;
+}
+
 /** 校验（可部分）palette 对象；缺失键由 fallback 补齐。返回全新对象。 */
 function normalizePalette(input, fallback, what) {
   var out = copyPalette(fallback);
@@ -268,6 +317,9 @@ function defaults() {
     syntax: true,
     marker: 'label',
     toolPath: true,
+    thinkRainbow: false,
+    rowTint: false,
+    rowColors: copyRowColors(ROW_TINTS),
     fontScale: 0.94,
     radius: 4,
     padding: 0.25,
@@ -326,6 +378,15 @@ function normalize(input) {
     if (typeof input.toolPath !== 'boolean') throw new Error('dsh-code-pill settings: toolPath must be boolean');
     out.toolPath = input.toolPath;
   }
+  if (input.thinkRainbow !== undefined) {
+    if (typeof input.thinkRainbow !== 'boolean') throw new Error('dsh-code-pill settings: thinkRainbow must be boolean');
+    out.thinkRainbow = input.thinkRainbow;
+  }
+  if (input.rowTint !== undefined) {
+    if (typeof input.rowTint !== 'boolean') throw new Error('dsh-code-pill settings: rowTint must be boolean');
+    out.rowTint = input.rowTint;
+  }
+  if (input.rowColors !== undefined) out.rowColors = normalizeRowColors(input.rowColors, out.rowColors);
   if (input.blockTheme !== undefined) out.blockTheme = assertEnum(input.blockTheme, BLOCK_THEMES, 'blockTheme');
   if (input.fontScale !== undefined) out.fontScale = assertNumber(input.fontScale, 0.8, 1.1, 'fontScale');
   if (input.radius !== undefined) out.radius = assertNumber(input.radius, 0, 10, 'radius');
@@ -371,7 +432,7 @@ function shikiVars(p) {
 }
 
 /** 单个主题的变量声明行（不含选择器与花括号）。 */
-function themeDeclarations(cfg, palette) {
+function themeDeclarations(cfg, palette, theme) {
   var lines = [];
   for (var i = 0; i < ROLE_KEYS.length; i++) {
     var role = ROLE_KEYS[i];
@@ -387,6 +448,10 @@ function themeDeclarations(cfg, palette) {
   lines.push('  --dshcp-font-scale: ' + cfg.fontScale + 'em;');
   lines.push('  --dshcp-radius: ' + cfg.radius + 'px;');
   lines.push('  --dshcp-padding: ' + cfg.padding + 'em;');
+  if (theme !== undefined) {
+    lines.push('  --dshcp-ink-l: ' + INK_LIGHTNESS[theme] + ';');
+    ROW_KEYS.forEach(function (kind) { lines.push('  --dshcp-row-' + kind + ': ' + cfg.rowColors[theme][kind] + ';'); });
+  }
   if (cfg.blockTheme === 'preset') {
     var sv = shikiVars(palette);
     for (var j = 0; j < sv.length; j++) lines.push('  ' + sv[j][0] + ': ' + sv[j][1] + ';');
@@ -405,8 +470,8 @@ function css(config, selector) {
   var darkSel = lightSel === 'html:root'
     ? 'html body[data-ds-dark-theme]'
     : lightSel + ' body[data-ds-dark-theme]';
-  return lightSel + ' {\n' + themeDeclarations(cfg, cfg.light).join('\n') + '\n}\n'
-    + darkSel + ' {\n' + themeDeclarations(cfg, cfg.dark).join('\n') + '\n}';
+  return lightSel + ' {\n' + themeDeclarations(cfg, cfg.light, 'light').join('\n') + '\n}\n'
+    + darkSel + ' {\n' + themeDeclarations(cfg, cfg.dark, 'dark').join('\n') + '\n}';
 }
 
 /** React style 对象形式的自定义属性（隔离预览用，var() 全部解析为实色）。 */
@@ -486,6 +551,8 @@ var CP_SETTINGS = {
   PRESETS: PRESETS,
   PALETTE_KEYS: PALETTE_KEYS,
   ROLE_KEYS: ROLE_KEYS,
+  ROW_TINTS: ROW_TINTS,
+  ROW_KEYS: ROW_KEYS,
   MARKERS: MARKERS,
   BLOCK_THEMES: BLOCK_THEMES,
   AA_NORMAL: AA_NORMAL,

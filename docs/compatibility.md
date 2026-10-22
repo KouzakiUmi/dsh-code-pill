@@ -1,6 +1,6 @@
 # 兼容性与权限边界
 
-本文针对 **0.5.0** 的代码。六套预设、自定义色板、双 Tab 设置页、图标、字体与持久化能力自 `0.3.0` 起提供，字体能力分类与搜索自 `0.4.0` 起提供；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
+本文针对 **0.6.0** 的代码。六套预设、自定义色板、双 Tab 设置页、图标、字体与持久化能力自 `0.3.0` 起提供，字体能力分类与搜索自 `0.4.0` 起提供；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
 
 ## 已知证据，不扩大结论
 
@@ -20,6 +20,10 @@
 Font Lab 合并版本的浏览器内行为已由隔离 Chrome + React 测试覆盖；字体族读取授权、生产终端与 CSS zoom 弹窗仍缺现场验收证据，不能据此宣称已在所有宿主或其余 Profile 部署。
 
 聊天路径适配（0.5.0）基于本地宿主源码结构，已在隔离 Chrome 中验证路径、点击保持、动态归属、配置与卸载；未进行真实宿主整页验收。少量 CSS-module 局部名回退仍需随宿主升级回归。
+
+思考文字彩虹刷入依赖 CSS Custom Highlight API、`StaticRange` 与 `color-mix()`；缺任一能力时该选项静默不生效。本机验证使用 Chrome 155（隔离页面，复刻宿主思考行与流式 Markdown 的 DOM 契约）；本机桌面壳的 Chromium 版本来自安装包字符串，不等于已在其真实聊天页验收。
+
+折叠动作行着色的类别与状态色是纯 CSS，依赖宿主 `data-variant`／`data-tool`／`data-state` 与 DisclosureRow 的固定子结构（取自本机已安装宿主源码，宿主改动结构时可能失效且不报错）；完成状态词另需 CSS Custom Highlight 与 `StaticRange`。同样只在隔离 Chrome 夹具中验证，未在真实聊天页验收。
 
 ## 宿主能力与降级
 
