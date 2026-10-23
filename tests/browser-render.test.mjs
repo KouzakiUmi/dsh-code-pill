@@ -1,5 +1,6 @@
 import { createRequire } from 'node:module'
 import { readFileSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import assert from 'node:assert/strict'
 const require = createRequire(import.meta.url)
 const { chromium } = require('playwright-core')
@@ -61,7 +62,7 @@ try {
   assert.equal(lightVars.pillColor, 'rgb(145, 98, 0)')
 
   await page.evaluate(() => document.body.setAttribute('data-ds-dark-theme', ''))
-  await page.screenshot({ path: new URL('../dist/inline-preview.png', import.meta.url).pathname.replace(/^\/(\w:)/, '$1') })
+  await page.screenshot({ path: fileURLToPath(new URL('../dist/inline-preview.png', import.meta.url)) })
   await page.evaluate(() => window.cleanup())
   assert.equal(await page.locator('.dshcp-pill').count(), 0)
   assert.equal(await page.locator('[data-dshcp-badge]').count(), 0)
