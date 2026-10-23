@@ -3,6 +3,7 @@
  * build 内联 tokenizer、CSS 与 settings core/UI，产出自包含 lib/client.js。
  * React 安全：只修改 code 的 class/data 属性，子节点永不插入/替换。
  * token 用持久 CSS Highlight 集合与 per-code Range 差量更新。
+ * 工具行路径按变更范围增量复核（元素/子树），不再全量重扫聊天流。
  */
 window.__ModuleLoader__.load({
 	id: "dsh-code-pill",
@@ -193,65 +194,75 @@ window.__ModuleLoader__.load({
 				for (var code of node.querySelectorAll("code")) callback(code);
 			}
 
-			// 思考文字彩虹刷入关心的语义属性：运行态、行类型与展开正文/预览摘要标记。
-			// 折叠行着色关心的属性：行状态与类别。
-			var ROW_ATTRS = ["data-state", "data-variant", "data-tool"];
-			var INK_ATTRS = ["data-state", "data-variant", "data-streaming", "data-markdown-variant"];
-			var observer = new MutationObserver(function (mutations) {
-				paths.beginBatch();
-				for (var m of mutations) {
-					if (m.type === "attributes" && m.attributeName === "class") {
-						var hostClasses = function (value) { return (value || "").split(/\s+/).filter(function (c) { return c && c !== "dshcp-pill" && c !== "dshcp-tool-path"; }).sort().join(" "); };
-						if (hostClasses(m.oldValue) === hostClasses(m.target.getAttribute("class")) && paths.isOwnClass(m.target)) continue;
+		// 思考文字彩虹刷入关心的语义属性：运行态、行类型与展开正文/预览摘要标记。
+		// 折叠行着色关心的属性：行状态与类别。
+		var ROW_ATTRS = ["data-state", "data-variant", "data-tool"];
+		var INK_ATTRS = ["data-state", "data-variant", "data-streaming", "data-markdown-variant"];
+		// 路径渲染中影响整个子树候选的属性：容器语义/排除区变化需整棵重扫，其余只复核元素自身。
+		var PATH_TREE_ATTRS = new Set(["contenteditable", "data-dshcp-preview", "data-message-attachments", "data-disclosure-row",
+			"data-tool", "data-variant", "data-state", "data-chat-flow", "data-chat-flow-kind",
+			"data-read", "data-diff", "data-terminal", "data-search", "data-code-block-banner"]);
+		var hostClasses = function (value) {
+			return (value || "").split(/\s+/).filter(function (c) { return c && c !== "dshcp-pill" && c !== "dshcp-tool-path"; }).sort().join(" ");
+		};
+		var observer = new MutationObserver(function (mutations) {
+			for (var m of mutations) {
+				if (m.type === "attributes") {
+					var name = m.attributeName;
+					if (name === "class") {
+						var current = m.target.getAttribute("class");
+						// 同值重设（React 常见）不改变任何候选，先走全等快路径再归一化比较。
+						if (m.oldValue === current) continue;
+						var normalized = hostClasses(m.oldValue) === hostClasses(current);
 						// 行内管线只写插件 class，结构/文本变化另有队列。
-						if (m.target.tagName === "CODE" && codeClasses.has(m.target) && codeClasses.get(m.target) === m.target.getAttribute("class") && hostClasses(m.oldValue) === hostClasses(m.target.getAttribute("class"))) continue;
+						if (normalized && paths.isOwnClass(m.target)) continue;
+						if (normalized && m.target.tagName === "CODE" && codeClasses.has(m.target)
+							&& codeClasses.get(m.target) === current) continue;
 					}
-					if (m.type === "attributes") {
-						if (INK_ATTRS.indexOf(m.attributeName) !== -1) ink.queueTree(m.target);
-						if (ROW_ATTRS.indexOf(m.attributeName) !== -1) rows.queueTree(m.target);
-					} else if (m.type === "characterData") {
-						ink.queueText(m.target);
-						rows.queueText(m.target);
-					}
-					else if (m.type === "childList") {
-						for (var inkAdded of m.addedNodes) {
-							if (inkAdded.nodeType === 1) {
-								ink.queueTree(inkAdded);
-								rows.queueTree(inkAdded);
-							} else if (inkAdded.nodeType === 3) {
-								ink.queueText(inkAdded);
-								rows.queueText(inkAdded);
-							}
+					if (INK_ATTRS.indexOf(name) !== -1) ink.queueTree(m.target);
+					if (ROW_ATTRS.indexOf(name) !== -1) rows.queueTree(m.target);
+					if (PATH_TREE_ATTRS.has(name)) paths.queueTree(m.target);
+					else paths.queueSelf(m.target);
+					if (name === "data-dshcp-preview") visitCodes(m.target, function (code) { queue(code, true); });
+					if (name === "class" && m.target.tagName === "CODE") queue(m.target, true);
+					continue;
+				}
+				if (m.type === "characterData") {
+					ink.queueText(m.target);
+					rows.queueText(m.target);
+					paths.queueText(m.target);
+					var parent = m.target.parentElement;
+					var owner = parent !== null ? parent.closest("code") : null;
+					if (owner !== null) queue(owner);
+				} else if (m.type === "childList") {
+					for (var inkAdded of m.addedNodes) {
+						if (inkAdded.nodeType === 1) {
+							ink.queueTree(inkAdded);
+							rows.queueTree(inkAdded);
+						} else if (inkAdded.nodeType === 3) {
+							ink.queueText(inkAdded);
+							rows.queueText(inkAdded);
 						}
 					}
-					paths.queue(m.target);
-					if (m.type === "attributes") {
-						if (m.attributeName === "data-dshcp-preview") visitCodes(m.target, function (code) { queue(code, true); });
-						if (m.attributeName === "class" && m.target.tagName === "CODE") queue(m.target, true);
-						continue;
+					// 摘要文本随子树增删变化，自身与祖先链都只复核该元素。
+					paths.queueSelf(m.target);
+					var changedCode = m.target.closest !== undefined ? m.target.closest("code") : null;
+					if (changedCode !== null) queue(changedCode, true);
+					for (var node of m.removedNodes) {
+						visitCodes(node, cleanupCode);
+						paths.queueTree(node, m.target);
 					}
-					if (m.type === "characterData") {
-						var parent = m.target.parentElement;
-						var owner = parent !== null ? parent.closest("code") : null;
-						if (owner !== null) queue(owner);
-					} else if (m.type === "childList") {
-						var changedCode = m.target.closest !== undefined ? m.target.closest("code") : null;
-						if (changedCode !== null) queue(changedCode, true);
-						for (var node of m.removedNodes) {
-							visitCodes(node, cleanupCode);
-							paths.queue(node);
-						}
-						for (var added of m.addedNodes) {
-							visitCodes(added, function (code) { queue(code, true); });
-							paths.queue(added);
-						}
+					for (var added of m.addedNodes) {
+						visitCodes(added, function (code) { queue(code, true); });
+						paths.queueTree(added, m.target);
 					}
 				}
-				// 彩虹刷入要在同一微任务里登记新文字：晚到下一帧会漏掉一帧原色。
-				ink.flush();
-				rows.flush();
-				schedule();
-			});
+			}
+			// 彩虹刷入要在同一微任务里登记新文字：晚到下一帧会漏掉一帧原色。
+			ink.flush();
+			rows.flush();
+			schedule();
+		});
 
 			function configure() {
 				if (disposed) return;
@@ -277,7 +288,7 @@ window.__ModuleLoader__.load({
 
 			configure();
 			observer.observe(root, { childList: true, characterData: true, subtree: true, attributes: true, attributeOldValue: true,
-				attributeFilter: ["class", "contenteditable", "data-dshcp-preview", "data-message-attachments", "data-disclosure-row", "data-code-block-banner", "data-ref-chip", "data-tool", "data-variant", "data-state", "data-chat-flow", "data-chat-flow-kind", "data-search", "data-read", "data-diff", "data-terminal", "data-path-label", "data-streaming", "data-markdown-variant", "title", "href"] });
+				attributeFilter: ["class", "contenteditable", "data-dshcp-preview", "data-message-attachments", "data-disclosure-row", "data-code-block-banner", "data-ref-chip", "data-tool", "data-variant", "data-state", "data-chat-flow", "data-chat-flow-kind", "data-search", "data-read", "data-diff", "data-terminal", "data-path-label", "data-streaming", "data-markdown-variant", "title"] });
 			if (store && typeof store.subscribe === "function") off = store.subscribe(configure);
 
 			return function () {

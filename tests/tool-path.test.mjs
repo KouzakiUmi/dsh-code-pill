@@ -327,6 +327,47 @@ try {
   assert.equal(await page.evaluate(() => window.transient.querySelector('.dshcp-pill') !== null), false)
   assert.equal(await page.locator('#flow .dshcp-tool-path').count(), 0, '移除聊天身份全部撤销')
 
+  // 增量引擎回归：已装饰元素本体移除、工具行兄弟行序变化、独立工具行内的聊天流适配器。
+  await page.evaluate(() => {
+    const holder = document.createElement('div'); holder.id = 'incremental'
+    holder.innerHTML = `
+      <div id="row-direct" data-tool="edit" data-variant="edit" data-state="ok">
+        <div data-disclosure-row><button type="button" class="fileLink"><span class="text">src/direct.ts</span></button></div>
+      </div>
+      <div id="row-order" data-tool="read" data-variant="read" data-state="ok">
+        <div data-disclosure-header>
+          <div data-disclosure-row id="row-order-a"><span class="summary">docs/first.md</span></div>
+          <div data-disclosure-row id="row-order-b"><span class="summary">docs/second.md</span></div>
+        </div>
+      </div>
+      <div id="row-standalone" data-tool="bash" data-variant="bash" data-state="ok">
+        <div data-search="paths"><div class="abc_line">/tmp/inside-tool.ts</div></div>
+        <div data-read><div data-code-block-banner><span class="abc_title" title="C:/read/inside.ts">C:/read/inside.ts</span></div></div>
+      </div>`
+    document.getElementById('host').append(holder)
+  })
+  await settle()
+  // 只有第一个 disclosure-row 的摘要可装饰；行序变化要即时对账。
+  assert.equal(await page.locator('#row-order-a .dshcp-tool-path').count(), 1)
+  assert.equal(await page.locator('#row-order-b .dshcp-tool-path').count(), 0)
+  await page.evaluate(() => document.getElementById('row-order-a').remove())
+  await settle()
+  assert.equal(await page.locator('#row-order-b .dshcp-tool-path').count(), 1, '首个行移除后第二个行的摘要接续装饰')
+  await page.evaluate(() => {
+    const fresh = document.createElement('div'); fresh.id = 'row-order-c'; fresh.setAttribute('data-disclosure-row', '')
+    fresh.innerHTML = '<span class="summary">docs/third.md</span>'
+    document.getElementById('row-order').querySelector('[data-disclosure-header]').prepend(fresh)
+  })
+  await settle()
+  assert.equal(await page.locator('#row-order-b .dshcp-tool-path').count(), 0, '新行前置后原首行失去装饰')
+  assert.equal(await page.locator('#row-order-c .dshcp-tool-path').count(), 1)
+  // 独立工具行（不在聊天流）里 search/read-title 适配器不生效。
+  assert.equal(await page.locator('#row-standalone .dshcp-tool-path').count(), 0, '独立工具行内的搜索/读取卡片不走聊天流适配器')
+  // 已装饰元素本体被直接移除（非祖先移除）：装饰必须撤销。
+  await page.evaluate(() => { window.directButton = document.querySelector('#row-direct .fileLink'); window.directButton.remove() })
+  await settle()
+  assert.equal(await page.evaluate(() => window.directButton.classList.contains('dshcp-tool-path')), false, '元素本体移除后装饰撤销')
+
   // 卸载：装饰、属性与样式全部还原。
   await page.evaluate(() => window.dispose())
   await settle()
