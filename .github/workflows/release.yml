@@ -33,7 +33,7 @@ jobs:
       - run: node scripts/check-manifest.mjs && node scripts/check-docs.mjs && node --check lib/client.js
       - run: node tests/tokenizer.test.mjs && node tests/settings.test.mjs && node tests/fonts.test.mjs && node tests/font-catalog.test.mjs && node tests/client-smoke.test.mjs
       - run: node scripts/color-audit.mjs
-      - run: node tests/browser-render.test.mjs && node tests/dynamic-render.test.mjs && node tests/settings-browser.test.mjs && node tests/tool-path.test.mjs && node tests/think-ink.test.mjs && node tests/row-tint.test.mjs
+      - run: node tests/browser-render.test.mjs && node tests/dynamic-render.test.mjs && node tests/settings-browser.test.mjs && node tests/tool-path.test.mjs && node tests/think-ink.test.mjs && node tests/row-tint.test.mjs && node tests/sentence-fallback.test.mjs
       - run: npm pack --ignore-scripts --json > pack.json && node scripts/prepare-release.mjs
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

@@ -10,7 +10,7 @@ import { createRequire } from 'node:module'
 import assert from 'node:assert/strict'
 
 const require = createRequire(import.meta.url)
-const { tokenizeRanges, detectBadge, detectCommand, detectInlineMode, detectInlineContext, detectPathLike } = require('../src/tokenizer.cjs')
+const { tokenizeRanges, detectBadge, detectCommand, detectInlineMode, detectInlineContext, detectPathLike, detectSentenceFallback } = require('../src/tokenizer.cjs')
 
 /** 断言 src 的着色类别序列（按出现顺序）等于 expected。 */
 function assertClasses(src, expected, options = {}) {
@@ -252,5 +252,61 @@ test('path like: urls, commands and plain words are not paths', () => {
 test('path like: whitespace and oversized text are rejected', () => {
   assert.equal(detectPathLike('src/tokenizer cjs'), false)
   assert.equal(detectPathLike('a/'.repeat(120) + 'x.js'), false)
+})
+
+// ---- detectSentenceFallback：整句被并进单个 code span 的句子级降级 ----
+test('sentence fallback: paired backticks fused into prose are detected', () => {
+  // 截图案例：开口反引号与收口反引号都粘连在正文里。
+  assert.equal(detectSentenceFallback('Let me check for processes that have `G:` as CWD: Get-Process | Where { _ } and list them'), true)
+  assert.equal(detectSentenceFallback('the `bash tool` each call runs bash -c with workdir default inside script'), true)
+  // 收口后接中文散文。
+  assert.equal(detectSentenceFallback('请先查看 `package.json` 里的 scripts 字段确认构建入口是否正确'), true)
+})
+
+test('sentence fallback: prose before the opening backtick counts', () => {
+  assert.equal(detectSentenceFallback('press the Y key to confirm `Esc` to cancel'), true)
+})
+
+test('sentence fallback: CJK prose tail without spaces or punctuation is detected', () => {
+  assert.equal(detectSentenceFallback('请使用 `npm install` 安装依赖然后运行构建脚本检查输出结果是否正确'), true)
+  assert.equal(detectSentenceFallback('我先看一下 `G:` 盘的当前工作目录是被哪个进程占用的然后再决定怎么处理'), true)
+  // 尾巴过短或只有一个 CJK 词：不降级。
+  assert.equal(detectSentenceFallback('我先看一下 `G:` 盘是被'), false)
+  assert.equal(detectSentenceFallback('运行 `npm test` 即可'), false)
+})
+
+test('sentence fallback: CJK stuck to Latin words still counts as prose', () => {
+  assert.equal(detectSentenceFallback('请检查 `G:` CWD当前工作目录已经被占用了'), true)
+  assert.equal(detectSentenceFallback('请检查 `service` API接口需要重新检查'), true)
+})
+
+test('sentence fallback: shell and script examples with command substitution stay code', () => {
+  assert.equal(detectSentenceFallback('echo `date` foo bar'), false)
+  assert.equal(detectSentenceFallback('echo `pwd` file.txt'), false)
+  assert.equal(detectSentenceFallback('cp `pwd`/a.js /tmp/b.js'), false)
+  assert.equal(detectSentenceFallback('return `foo` + foo + bar'), false)
+  assert.equal(detectSentenceFallback('Write-Host "a`nb`tc" -ForegroundColor Red'), false)
+  assert.equal(detectSentenceFallback('echo `date` and then print the result of the calculation to stdout'), false)
+})
+
+test('sentence fallback: normal inline code stays host-rendered', () => {
+  // 引号自成一词（无正文尾巴/正文以标点收尾）。
+  assert.equal(detectSentenceFallback('edit `package.json`.'), false)
+  assert.equal(detectSentenceFallback('use `G:` here'), false)
+  assert.equal(detectSentenceFallback('run `npm test`'), false)
+  // 纯代码：引号两侧都是代码内容。
+  assert.equal(detectSentenceFallback('echo `date` output'), false)
+  assert.equal(detectSentenceFallback('`G:`'), false)
+  assert.equal(detectSentenceFallback('check `G:`'), false)
+  // 真实的命令替换/双反引号定界示例：尾巴只有一个词，不降级。
+  assert.equal(detectSentenceFallback('run `cmd` now'), false)
+  // 片段过长：视为被折叠的代码内容。
+  assert.equal(detectSentenceFallback('value `' + 'a/'.repeat(60) + 'x` tail words'), false)
+  // 第三枚反引号：嵌套结构不猜。
+  assert.equal(detectSentenceFallback('outer `inner` tail with `more` words'), false)
+  // 尾巴词数不足。
+  assert.equal(detectSentenceFallback('word `G:` tail'), false)
+  // 超长整体不降级。
+  assert.equal(detectSentenceFallback('long '.repeat(80) + '`G:` tail words'), false)
 })
 console.log(`dsh-code-pill tokenizer: ${passed} tests passed`)

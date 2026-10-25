@@ -175,6 +175,78 @@ function detectCommand(src) {
   return m !== null && COMMANDS.has(m[1]) && (src[m[0].length] === undefined || /\s/.test(src[m[0].length]));
 }
 
+/**
+ * 句子级降级检测：宿主 Markdown 解析器把成对反引号间的普通文字并进同一个
+ * code span 时（开口与收口反引号都粘连在正文里，聊天流中整句被套上代码
+ * 底色与等宽字体），插件不能改正文子节点，也无法把宿主的 code 拆回去，
+ * 只能降级装饰：识别出「成对反引号包着真实片段 + 足够长的散文尾巴」的
+ * 句子级文本后，把文字指回正文变量并取消等宽字体；底色与内边距保留
+ * （多行折叠时表现为行块底色，属于可接受的降级）。样式走普通文本级联，
+ * token 高亮仍走 ::highlight 伪元素，不受这条规则影响。
+ *
+ * 判定边界：
+ * - 文本含且仅含一对反引号，且引号外至少一侧有正文（整段代码并进来时
+ *   两侧都是代码，不算）；第三枚反引号视为嵌套结构，不猜。注意：作者用
+ *   双反引号定界符书写的合法行内代码（内容含字面反引号）无法与融合区分，
+ *   会被一并降级——只影响颜色/字体，不改文字，可在设置中关闭；
+ * - 两引号之间是「短、至少含一个词字符、无句读」的片段；过长的多是
+ *   被折叠的多行代码，含句读的说明反引号自成结构，均不降级；
+ * - 开口前若有正文，不得含引号、赋值、管道、反斜杠等代码字符，也不得以
+ *   已知命令（echo、cp 等）或语句关键字（return 等）起头，否则
+ *   `echo `date` foo bar` 这类命令替换示例会被误降级；
+ * - 收口引号之后存在散文尾巴：至少两个词（中日韩文字每 2 字符折算 1 词，
+ *   与紧贴的拉丁词分开计数），且非空白长度足够长，或开口前已有正文
+ *   （句子被引号截断）。词数要求保住了 `echo `date` output` 这类真实的命令替换示例。
+ */
+var SENTENCE_MAX = 300;
+var SENTENCE_TAIL = 24;
+var SENTENCE_FRAG = 120;
+// 以这些语句关键字起头的开口前缀视为代码而非正文（命令词另用 COMMANDS）。
+var SENTENCE_CODE_LEAD = new Set(('return throw yield await new delete typeof import export const let var ' +
+  'function class def print console').split(' '));
+// 散文词数：中日韩文字不以空白分词，先把每段连续文字按每 2 个字符折算 1 个词
+// （rounding 指定取整方式），再把它们替换成空白，数剩余的拉丁／数字词，
+// 避免拉丁词匹配把后面紧贴的中文吞成同一个词。
+function countWords(text, rounding) {
+  var count = 0;
+  var rest = text.replace(/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]+/gu, function (run) {
+    count += rounding(run.length / 2);
+    return ' ';
+  });
+  var latin = rest.match(/[\p{L}\p{N}][\p{L}\p{N}_-]*/gu);
+  return count + (latin === null ? 0 : latin.length);
+}
+function detectSentenceFallback(src) {
+  if (typeof src !== 'string' || src.length > SENTENCE_MAX || src.length < 3) return false;
+  var open = src.indexOf('`');
+  if (open === -1) return false;
+  var close = src.indexOf('`', open + 1);
+  if (close === -1 || close === open + 1) return false;
+  if (src.indexOf('`', close + 1) !== -1) return false;
+  var proseBefore = open > 0;
+  if (!proseBefore && close >= src.length - 1) return false;
+  var frag = src.slice(open + 1, close);
+  if (frag.length > SENTENCE_FRAG || /[\p{L}\p{N}]/u.test(frag) === false) return false;
+  if (/[;；，。！？、]/.test(frag)) return false;
+  // 开口前若为正文，应以词、闭括号或冒号收尾（句子被引号截断的常见位置）；
+  // 标点收尾说明引号自成一词（正常 Markdown 行内代码），保持宿主样式。
+  if (proseBefore) {
+    var head = src.slice(0, open);
+    if (!/[\p{L}\p{N}_)\]:]\s*$/u.test(head)) return false;
+    // 开口前必须像正文：不含引号、赋值、管道等代码字符，且不以已知命令或语句
+    // 关键字起头（区分大小写，句首大写的普通英文词不受影响）；
+    // 否则 `echo `date` foo bar`、`return `x` + y` 这类代码示例会被误当成整句。
+    if (/["$={}|\\]/.test(head)) return false;
+    var lead = head.match(/^\s*([\w-]+)/);
+    if (lead !== null && (COMMANDS.has(lead[1]) || SENTENCE_CODE_LEAD.has(lead[1]))) return false;
+  }
+  var tail = src.slice(close + 1);
+  var tailSolid = tail.replace(/\s/g, '');
+  if (tailSolid.length === 0) return false;
+  if (countWords(tail, Math.floor) < 2) return false;
+  return tailSolid.length >= SENTENCE_TAIL || proseBefore;
+}
+
 // 行内文字先判语境，避免把路径、文件名、术语当作表达式拆色。
 // badge 可选传入（detectInlineContext 已算过时复用），缺省内部自算。
 function detectInlineMode(src, badge) {
@@ -348,5 +420,5 @@ function tokenizeRanges(src, bash) {
 }
 
 if (typeof module !== 'undefined' && module.exports !== undefined && typeof window === 'undefined') {
-  module.exports = { tokenizeRanges, detectBadge, detectCommand, detectInlineMode, detectInlineContext, detectPathLike };
+  module.exports = { tokenizeRanges, detectBadge, detectCommand, detectInlineMode, detectInlineContext, detectPathLike, detectSentenceFallback };
 }

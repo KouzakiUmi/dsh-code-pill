@@ -111,6 +111,7 @@ window.__ModuleLoader__.load({
 				decorated.delete(code);
 				delete code.dataset.dshcpBadge;
 				delete code.dataset.dshcpIcon;
+				delete code.dataset.dshcpSentence;
 				code.classList.remove("dshcp-pill");
 				codeClasses.set(code, code.getAttribute("class"));
 			}
@@ -148,6 +149,18 @@ window.__ModuleLoader__.load({
 				decorated.add(code);
 				var inline = detectInlineContext(text);
 				var marker = config.marker;
+				// 句子级降级：整句被并进单个 code span 时不再按代码渲染文字。
+				// 只加 data 标记（样式见 styles.css），token 化与徽章跳过，
+				// pill 底色保留，不修改宿主子节点。
+				var sentence = config.sentenceFallback === true && detectSentenceFallback(text) === true;
+				if (sentence) {
+					code.dataset.dshcpSentence = "";
+					// 文本从文件名变成融合句时撤销上一轮的徽章装饰。
+					delete code.dataset.dshcpBadge;
+					delete code.dataset.dshcpIcon;
+					return;
+				}
+				delete code.dataset.dshcpSentence;
 				if ((marker === "label" || marker === "both") && inline.badge !== null) {
 					code.dataset.dshcpBadge = inline.badge;
 				} else delete code.dataset.dshcpBadge;

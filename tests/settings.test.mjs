@@ -50,6 +50,7 @@ test('defaults: exact default shape with direct palette objects', () => {
     syntax: true,
     marker: 'label',
     toolPath: true,
+    sentenceFallback: true,
     thinkRainbow: false,
     rowTint: false,
     rowColors: { light: { ...CP_SETTINGS.ROW_TINTS.light }, dark: { ...CP_SETTINGS.ROW_TINTS.dark } },

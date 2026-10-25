@@ -152,6 +152,8 @@ MutationObserver 监听 childList 与 characterData，受影响的 code 入 Set�
 配置变化更新样式、清除旧 Range 并重新排队；关闭 syntax 保留 pill 与可选文件标记。
 卸载清理 slot 注册、store 订阅/storage 事件、observer、RAF、样式、Highlight 与装饰属性。
 
+句子级降级（`sentenceFallback`，默认开启）处理宿主 Markdown 解析把成对反引号连同周围正文并进同一个 code span 的消息：检测命中后只加 `data-dshcp-sentence` 标记，文字经普通级联恢复正文颜色与正文字体（压过本插件自己的胶囊 `!important` 规则），跳过 token 化与徽章，胶囊底色保留。不修改宿主子节点；`::highlight` 伪元素作用在文字区间上，不受元素级 color 影响。检测是启发式：片段含词字符且无句读、尾巴有足够的散文词；双反引号定界的合法代码无法逐字符区分，会被一并降级（只影响颜色/字体），设置开关可整项关闭。
+
 无 Highlight API：pill + 文件标记，不染 token。非单文本节点：安全退化为 plain。
 高对比 forced-colors 由系统接管色彩；不强制保留自定义 RGB。
 

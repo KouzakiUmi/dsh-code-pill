@@ -1,12 +1,12 @@
 # 兼容性与权限边界
 
-本文针对 **0.7.2** 的代码。六套预设、自定义色板、双 Tab 设置页、图标、字体与持久化能力自 `0.3.0` 起提供，字体能力分类与搜索自 `0.4.0` 起提供；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
+本文针对 **0.8.0** 的代码。六套预设、自定义色板、双 Tab 设置页、图标、字体与持久化能力自 `0.3.0` 起提供，字体能力分类与搜索自 `0.4.0` 起提供；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
 
 ## 已知证据，不扩大结论
 
 | 层级 | 已知事实 | 不能据此声称 |
 | --- | --- | --- |
-| 历史 DSH 集成 | 原有行内渲染在 Core `0.2.1-alpha.1` / Cordis `4.0.5-alpha.1` 上有历史验证；包清单仅标记该 Core compatible | 当前新增设置页已在该 Core 整个真实现场重新验证；其他 Core 自动兼容 |
+| 历史 DSH 集成 | 原有行内渲染在 Core `0.2.1-alpha.1` / Cordis `4.0.5-alpha.1` 上有历史验证；包清单（`dsh.compatibility.dshReleases`）当前标记 Core `0.2.1-rc.3`（桌面运行时 `desktop-runtime.json` 所载版本，Cordis `4.0.5`）为 compatible，该声明由维护者按当前桌面 Core 更新，本机构建与浏览器测试通过，尚未在 `rc.3` 的真实宿主现场重新验证 | `rc.3` 已完成现场验证；旧 Core 或其他 Core 自动兼容 |
 | 当前宿主现场 | 桌面 Profile 安装本地未发布包、独立 Chrome 连接真实宿主（Core `0.2.1-alpha.2`）：设置 slots 入口、草稿隔离、保存实际聊天色板、三个真实文件节点的图标、语法关闭后 Range 清空、导出 JSON、刷新恢复均通过；41 个真实聊天 code 子节点身份未被改写；深/浅标题颜色与宿主正文对齐 | 生产 Electron 窗口本身已被直接操作；npm `0.2.0` 已包含这些功能 |
 | 浏览器渲染 | 真实 Chrome 测试检查最终 bundle 的颜色、Highlight ranges、徽章、主题、动态节点与卸载；新增设置/动态测试已在本机通过 | 所有浏览器、桌面壳、宿主主题都通过；测试夹具等于生产消息页 |
 | 设置页测试 | [settings-browser.test.mjs](../tests/settings-browser.test.mjs) 使用真实 React/ReactDOM，Button、Switch、Input 和 slots 为结构测试替身；新增保存栏验证使用嵌套 overflow 滚动容器，检查宽屏／窄屏下滚到下方和表单末尾仍能保存 | 控件样式等于生产宿主真实控件；顶部吸附已部署到生产实例；完整设置导航、生产 Shiki 高亮器已端到端验证 |

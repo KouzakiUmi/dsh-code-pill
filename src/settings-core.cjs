@@ -27,7 +27,7 @@ var MARKERS = ['off', 'label', 'icon', 'both'];
 /** 代码块主题：host 沿用宿主 shiki / preset 由色板生成 shiki 变量。 */
 var BLOCK_THEMES = ['host', 'preset'];
 
-var CONFIG_KEYS = ['version', 'preset', 'syntax', 'marker', 'toolPath', 'thinkRainbow', 'rowTint', 'rowColors', 'fontScale', 'radius', 'padding', 'bgOpacity', 'blockTheme', 'light', 'dark'];
+var CONFIG_KEYS = ['version', 'preset', 'syntax', 'marker', 'toolPath', 'sentenceFallback', 'thinkRainbow', 'rowTint', 'rowColors', 'fontScale', 'radius', 'padding', 'bgOpacity', 'blockTheme', 'light', 'dark'];
 
 /** 6 个独立语法角色（fn/typ/cst/prm 渲染层继承 plain，见 DESIGN.md §3）。 */
 var ROLE_KEYS = ['plain', 'kwc', 'kwd', 'str', 'com', 'num'];
@@ -331,6 +331,7 @@ function defaults() {
     syntax: true,
     marker: 'label',
     toolPath: true,
+    sentenceFallback: true,
     thinkRainbow: false,
     rowTint: false,
     rowColors: copyRowColors(ROW_TINTS),
@@ -391,6 +392,10 @@ function normalize(input) {
   if (input.toolPath !== undefined) {
     if (typeof input.toolPath !== 'boolean') throw new Error('dsh-code-pill settings: toolPath must be boolean');
     out.toolPath = input.toolPath;
+  }
+  if (input.sentenceFallback !== undefined) {
+    if (typeof input.sentenceFallback !== 'boolean') throw new Error('dsh-code-pill settings: sentenceFallback must be boolean');
+    out.sentenceFallback = input.sentenceFallback;
   }
   if (input.thinkRainbow !== undefined) {
     if (typeof input.thinkRainbow !== 'boolean') throw new Error('dsh-code-pill settings: thinkRainbow must be boolean');
@@ -457,6 +462,8 @@ function themeDeclarations(cfg, palette, theme) {
   lines.push('  --dshcp-cst: var(--dshcp-plain);');
   lines.push('  --dshcp-prm: var(--dshcp-plain);');
   lines.push('  --dshcp-bg: ' + rgbaCss(palette.bg, cfg.bgOpacity) + ';');
+  // 句子级降级文字色：整句被并进 code 时的正文色，跟随宿主正文令牌而非语法色板。
+  lines.push('  --dshcp-sentence-color: var(--dsw-alias-label-primary, inherit);');
   lines.push('  --dshcp-badge-bg: ' + palette.badgeBg + ';');
   lines.push('  --dshcp-badge-text: ' + palette.badgeText + ';');
   lines.push('  --dshcp-font-scale: ' + cfg.fontScale + 'em;');
@@ -502,6 +509,7 @@ function previewStyle(config, theme) {
   out['--dshcp-cst'] = p.plain;
   out['--dshcp-prm'] = p.plain;
   out['--dshcp-bg'] = rgbaCss(p.bg, cfg.bgOpacity);
+  out['--dshcp-sentence-color'] = 'var(--dsw-alias-label-primary, inherit)';
   out['--dshcp-badge-bg'] = p.badgeBg;
   out['--dshcp-badge-text'] = p.badgeText;
   out['--dshcp-font-scale'] = cfg.fontScale + 'em';

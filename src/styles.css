@@ -48,6 +48,16 @@ html body [data-path-label].dshcp-tool-path span { color: inherit !important; }
 :is(code.dshcp-pill, .dshcp-tool-path)[data-dshcp-icon="config"]::before {
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' d='M2.5 5.5h11M2.5 10.5h11'/%3E%3Ccircle cx='6' cy='5.5' r='1.9' fill='black'/%3E%3Ccircle cx='10' cy='10.5' r='1.9' fill='black'/%3E%3C/svg%3E") center / contain no-repeat;
 }
+/* 句子级降级：整句话被 Markdown 解析并进单个 code span（成对反引号粘连正文）
+   时不拆宿主子节点，只把文字恢复为正文色与正文字体；底色与内边距保留
+   （多行折叠时表现为行块底色）。需压过本插件基础规则的 !important 胶囊色与
+   字号，但不影响 ::highlight 伪元素的 token 高亮（伪元素作用于区间文字，
+   不与元素级 color 竞争）。 */
+html body code.dshcp-pill[data-dshcp-sentence] {
+  color: var(--dshcp-sentence-color, inherit) !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+}
 ::highlight(dshcp-kwc) { color: var(--dshcp-kwc); }
 ::highlight(dshcp-kwd) { color: var(--dshcp-kwd); }
 ::highlight(dshcp-str) { color: var(--dshcp-str); }
