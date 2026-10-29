@@ -9,7 +9,7 @@ Code Pill 用于 DSH 对话中的行内代码：薄背景、克制的语法色�
 
 ## 2. 核心约束
 
-1. **不修改消息子节点。** React 管理的 code 只加 class/data 属性；语法色用 CSS Custom Highlight，文件标记用伪元素。
+1. **不替换消息子节点。** 默认渲染管线只给 React 管理的 code 加 class/data 属性；语法色用 CSS Custom Highlight，文件标记用伪元素。可选「显示平滑」只在运行中的回复里改写现有 Text 的 `nodeValue` 来控制揭示进度，不替换节点；关闭、卸载时恢复完整文字。
 2. **宁可少染，不误伤术语。** 标识符、路径、URL、文件名默认 plain，只有明确表达式和命令启用启发式扫描。
 3. **增量更新。** 九个持久 Highlight 集合按 code 增删 Range，不在流式更新时重建全文。
 4. **草稿隔离。** 设置页面由 React 渲染独立预览，使用 `data-dshcp-preview` 排除聊天渲染管线。修改草稿不影响真实聊天。
@@ -90,6 +90,22 @@ fn/typ/cst/prm 并入 plain：行内表达式不是完整编辑器，不必把�
 
 颜色只是辅助线索：图标形状和动作文字才是主要信息，色觉差异下仍可分辨。着色规则只在开关开启时注入；状态词区间在开关关闭、卸载时撤销。设置页开关在选择预设时保持不变。
 
+### 3.4 显示平滑
+
+可选效果（默认关闭，配置键 `displaySmooth`）：保留宿主 `assistant-step` 组件及其 Markdown、代码块和交互，只在外层包装一个显示控制器。网络分块先登记为完整文字，再按每帧字符预算逐步写入现有 Text 节点；运行中速度随积压自适应，回合结束后有界排空，避免最后一段突然发布。
+
+| 约束 | 做法 |
+| --- | --- |
+| 默认与降级 | 默认关闭时不替换宿主组件；缺少 slots/React 时不启用。系统「减少动态效果」开启时保持宿主即时显示 |
+| 作用范围 | 仅 `data.status=running` 的助手回复及其收尾队列；已结束的历史消息不播放，不接管独立工具行 |
+| 文字与节点 | 按 Unicode 码点揭示；保留 Text 节点身份、React 组件和事件处理。自身写入经 MutationObserver 去重，非追加修改保留共同前缀 |
+| 首次内容 | 新运行行最多 120 个 UTF-16 单元的初始内容可进入揭示；较长现存内容视为历史，只平滑之后的新增内容 |
+| 滚动跟随 | 文字与滚动共用 RAF；底部跟随使用阻尼速度，帧时间最多计 32ms、单帧位移最多 8px，不依赖反复重置的 CSS smooth scroll |
+| 阅读控制 | 仅在原本接近底部时跟随；向上滚轮、拖动或其他离开预期位置的滚动会停止抢滚，回到底部可恢复 |
+| 生命周期 | 设置关闭、减少动态效果或插件卸载会断开 observer/RAF/滚动监听并恢复完整文字；宿主结算换成完整 Markdown 树时不重播旧正文 |
+
+实现位于 `src/display-smooth.js`。它属于可选的显示调度功能，与彩虹刷色不同，会暂时让 DOM 可见文字少于宿主已收到的完整文字；选择、复制和辅助技术看到的是当前已揭示内容。
+
 ## 4. 设置数据
 
 浏览器 key 为 `dsh-code-pill.settings.v1`；配置 `version: 1`。
@@ -107,6 +123,7 @@ fn/typ/cst/prm 并入 plain：行内表达式不是完整编辑器，不必把�
 | toolPath | 聊天文件路径胶囊布尔开关，默认开启 |
 | thinkRainbow | 思考文字彩虹刷入布尔开关，默认关闭 |
 | rowTint | 折叠动作行着色布尔开关，默认关闭 |
+| displaySmooth | 回复文字逐帧揭示与底部平滑跟随布尔开关，默认关闭 |
 | rowColors | 行着色的 8 个颜色：`light`/`dark` 各含 read/search/write/run/think/ok/warn/err，可部分覆盖，缺省为内置色板 |
 | fontScale | 0.8–1.1，相对正文 em |
 | radius | 0–10px |
@@ -163,6 +180,8 @@ MutationObserver 监听 childList 与 characterData，受影响的 code 入 Set�
 
 思考新词刷入与路径管线共用观察器：新增词的范围在同一微任务内登记，不推迟宿主文本显示；后续仅由一个有界定时器推进淡出档位，无活跃词时停止调度。无关工作区列表文本不进入动画队列。开关关闭、减少动态效果、卸载时清除定时器、Highlight、标记与样式。
 
+显示平滑通过 `conversation.chat.node` 的既有 `assistant-step` 条目包装宿主组件，不注册第二个回复视图。配置关闭时恢复原组件，并主动停止仍挂载的引擎；每个引擎拥有自己的文字 observer、ResizeObserver、RAF 与端口事件清理。默认管线不创建这些资源。
+
 ## 7. 设置页集成
 
 复用宿主 React 和 `@deepseek-ai/dsh-client-ui-primitives` 的 Button、Switch、Input。
@@ -185,6 +204,7 @@ MutationObserver 监听 childList 与 characterData，受影响的 code 入 Set�
 - `node tests/tool-path.test.mjs`：宿主工具行路径胶囊、徽章模式、开关与清理；测试页复刻宿主的行标记，不是宿主整页截图验证。
 - `node tests/think-ink.test.mjs`：思考文字彩虹刷入的像素采样、流式增量、StaticRange 不折叠、历史/结算不重播、减少动态效果、开关与卸载；测试页复刻宿主思考行的 DOM 契约，不是宿主整页截图验证。
 - `node tests/row-tint.test.mjs`：折叠动作行着色的类别色、状态色、完成状态词、悬停、动态更新、开关与卸载；并核对开启前后宿主 DOM 逐字节一致；测试页复刻宿主 DisclosureRow 结构，不是宿主整页截图验证。
+- `node tests/display-smooth.test.mjs`：真实 React/Chromium 中验证默认关闭、分块逐帧揭示、8px 跟随上限、结束排空、手动阅读、开关/卸载恢复与减少动态效果；使用宿主条目和滚动端口结构替身，不是生产宿主整页验收。
 - `node scripts/color-audit.mjs`：六套默认预设配对主题审计。
 
 源码修改后运行 build 更新 lib/client.js。构建不安装，不更新 Profile，不执行 Git 发布。

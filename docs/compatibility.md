@@ -1,6 +1,6 @@
 # 兼容性与权限边界
 
-本文针对 **0.8.0** 的代码。六套预设、自定义色板、双 Tab 设置页、图标、字体与持久化能力自 `0.3.0` 起提供，字体能力分类与搜索自 `0.4.0` 起提供；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
+本文针对 **0.8.1** 的代码。六套预设、自定义色板、双 Tab 设置页、图标、字体与持久化能力自 `0.3.0` 起提供，字体能力分类与搜索自 `0.4.0` 起提供；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
 
 ## 已知证据，不扩大结论
 
@@ -26,6 +26,8 @@ Font Lab 合并版本的浏览器内行为已由隔离 Chrome + React 测试覆�
 思考文字彩虹刷入依赖 CSS Custom Highlight API、`StaticRange` 与 `color-mix()`；缺任一能力时该选项静默不生效。当前源码的轻量短尾优先使用原生 `Intl.Segmenter` 分词，缺失时降级为有界词段；合成开关对照统计高亮更新次数、区间峰值和回调耗时，不把该统计冒充生产桌面 FPS 或已安装后的性能验收。本机验证使用 Chrome 155（隔离页面，复刻宿主思考行与流式 Markdown 的 DOM 契约）；本机桌面壳的 Chromium 版本来自安装包字符串，不等于已在其真实聊天页验收。
 
 折叠动作行着色的类别与状态色是纯 CSS，依赖宿主 `data-variant`／`data-tool`／`data-state` 与 DisclosureRow 的固定子结构（取自本机已安装宿主源码，宿主改动结构时可能失效且不报错）；完成状态词另需 CSS Custom Highlight 与 `StaticRange`。同样只在隔离 Chrome 夹具中验证，未在真实聊天页验收。
+
+显示平滑依赖 `conversation.chat.node` 中可包装的 `assistant-step` 条目与宿主 React；缺少这些能力时不启用。`data-conversation-scroll` 滚动端口只影响底部跟随：找不到端口时仍按帧揭示文字，但不做滚动跟随与手动阅读判定。它在开启后暂时改写运行中回复的现有 Text 节点内容以控制揭示进度，不是默认管线的只读文字装饰。真实 React/Chromium 结构测试覆盖逐帧揭示、跟随、开关和清理，但尚未在真实宿主整页验收，也不据此声称与其他回复接管类插件组合可用。
 
 ## 宿主能力与降级
 

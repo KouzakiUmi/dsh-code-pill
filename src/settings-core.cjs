@@ -13,7 +13,7 @@
  * 低对比，由 CP_SETTINGS.audit 输出 pass/false 供设置页警告。
  *
  * 配置形状（version 1）：
- *   { version, preset, syntax, marker, toolPath, thinkRainbow, rowTint, rowColors, fontScale, radius,
+ *   { version, preset, syntax, marker, toolPath, thinkRainbow, rowTint, displaySmooth, rowColors, fontScale, radius,
  *     padding, bgOpacity, blockTheme, light: {palette}, dark: {palette} }
  * light / dark 直接是 palette 对象（不再包一层 palette 键）。
  */
@@ -27,7 +27,7 @@ var MARKERS = ['off', 'label', 'icon', 'both'];
 /** 代码块主题：host 沿用宿主 shiki / preset 由色板生成 shiki 变量。 */
 var BLOCK_THEMES = ['host', 'preset'];
 
-var CONFIG_KEYS = ['version', 'preset', 'syntax', 'marker', 'toolPath', 'sentenceFallback', 'thinkRainbow', 'rowTint', 'rowColors', 'fontScale', 'radius', 'padding', 'bgOpacity', 'blockTheme', 'light', 'dark'];
+var CONFIG_KEYS = ['version', 'preset', 'syntax', 'marker', 'toolPath', 'sentenceFallback', 'thinkRainbow', 'rowTint', 'displaySmooth', 'rowColors', 'fontScale', 'radius', 'padding', 'bgOpacity', 'blockTheme', 'light', 'dark'];
 
 /** 6 个独立语法角色（fn/typ/cst/prm 渲染层继承 plain，见 DESIGN.md §3）。 */
 var ROLE_KEYS = ['plain', 'kwc', 'kwd', 'str', 'com', 'num'];
@@ -334,6 +334,7 @@ function defaults() {
     sentenceFallback: true,
     thinkRainbow: false,
     rowTint: false,
+    displaySmooth: false,
     rowColors: copyRowColors(ROW_TINTS),
     fontScale: 0.94,
     radius: 4,
@@ -404,6 +405,10 @@ function normalize(input) {
   if (input.rowTint !== undefined) {
     if (typeof input.rowTint !== 'boolean') throw new Error('dsh-code-pill settings: rowTint must be boolean');
     out.rowTint = input.rowTint;
+  }
+  if (input.displaySmooth !== undefined) {
+    if (typeof input.displaySmooth !== 'boolean') throw new Error('dsh-code-pill settings: displaySmooth must be boolean');
+    out.displaySmooth = input.displaySmooth;
   }
   if (input.rowColors !== undefined) out.rowColors = normalizeRowColors(input.rowColors, out.rowColors);
   if (input.blockTheme !== undefined) out.blockTheme = assertEnum(input.blockTheme, BLOCK_THEMES, 'blockTheme');

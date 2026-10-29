@@ -31,6 +31,8 @@ window.__ModuleLoader__.load({
 
 		/* __ROW_TINT__ */
 
+		/* __DISPLAY_SMOOTH__ */
+
 		var PLUGIN_ID = "dsh-code-pill";
 		var HIGHLIGHT_KEYS = ["kwc", "kwd", "str", "com", "num", "fn", "typ", "cst", "prm"];
 		// 配置文件类徽章使用独立图标形状（styles.css 的 [data-dshcp-icon="config"]）。
@@ -335,15 +337,19 @@ window.__ModuleLoader__.load({
 			}
 			function fonts() { return CP_FONTS.start(fontStore); }
 			function render() { return startRendering(store); }
+			function smoothing() { return typeof installDisplaySmoothing === "function" ? installDisplaySmoothing(ctx, store) : function () {}; }
 			if (typeof ctx.effect === "function") {
 				ctx.effect(settings, "dsh-code-pill: settings UI");
 				ctx.effect(fonts, "dsh-code-pill: typography");
+				ctx.effect(smoothing, "dsh-code-pill: display smoothing");
 				ctx.effect(render, "dsh-code-pill: inline code rendering");
 			} else {
 				var cleanupSettings = settings();
 				var cleanupRender = render();
 				var cleanupFonts = fonts();
+				var cleanupSmoothing = smoothing();
 				if (typeof ctx.on === "function") ctx.on("dispose", function () {
+					cleanupSmoothing();
 					cleanupFonts();
 					cleanupRender();
 					cleanupSettings();

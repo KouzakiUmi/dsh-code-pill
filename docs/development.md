@@ -26,6 +26,7 @@ node tests/tool-path.test.mjs
 node tests/think-ink.test.mjs
 node tests/row-tint.test.mjs
 node tests/sentence-fallback.test.mjs
+node tests/display-smooth.test.mjs
 node scripts/color-audit.mjs
 npm pack --ignore-scripts --json > pack.json
 node scripts/prepare-release.mjs
@@ -45,6 +46,7 @@ node scripts/prepare-release.mjs
 | [think-ink.test.mjs](../tests/think-ink.test.mjs) | 新词固定色相与淡出：像素采样、16词预算、176字符分词窗口、半词追加、多节点突发、无动画RAF、分词降级、历史/结算不重播、减少动态效果、开关与卸载定时器清理；不是宿主整页验收 |
 | [row-tint.test.mjs](../tests/row-tint.test.mjs) | 折叠动作行着色：12 类全部映射工具、未知工具兜底、技能／Cordis 独立头部、context 提示位置边界、嵌套行、类别／状态动态切换、双主题、完成状态词、开关与卸载；开启前后宿主 DOM 逐字节一致；不是宿主整页验收 |
 | [sentence-fallback.test.mjs](../tests/sentence-fallback.test.mjs) | 句子级降级：成对反引号并进正文的整句恢复正文色/字体、无徽章与 token 高亮、保留胶囊底色；正常行内代码不受影响；同一节点文本在文件名与融合句间切换、设置实时开关（无需刷新）、开关关闭与卸载清理；不是宿主整页验收 |
+| [display-smooth.test.mjs](../tests/display-smooth.test.mjs) | 真实 React/Chromium 的回复分块揭示、逐帧字符增长、8px 滚动上限、结束排空、手动滚动、默认关闭、开关与卸载恢复、减少动态效果；宿主条目和滚动端口为结构替身 |
 | [color-audit.mjs](../scripts/color-audit.mjs) | 所有预设深浅主题的页面/合成胶囊/徽章对比度、角色明度差、绿色盲模拟混淆对 |
 
 浏览器测试使用 `playwright-core` 驱动已安装的 Chrome，默认 `BROWSER_CHANNEL=chrome`；可设置 `BROWSER_CHANNEL=msedge` 使用已安装的 Edge。这不代表 Edge 已进入实际验证矩阵。预览图写入 `dist/`，包括行内代码与设置页深浅布局；它们是测试夹具截图，不是生产 DSH 全页截图。
@@ -81,6 +83,7 @@ src/styles.css ───────────── 几何、伪元素、设�
 src/path-renderer.js ─────── 聊天路径位置适配、归属对账、差量装饰
 src/think-ink.js ─────────── 思考新词刷入：固定词色、短尾预算与合并淡出定时器
 src/row-tint.js ──────────── 折叠动作行着色：类别/状态 CSS 与完成状态词区间
+src/display-smooth.js ────── 可选回复揭示队列与同帧底部跟随、宿主组件包装与恢复
 src/client-main.js ───────── DOM 观察、RAF、Highlight、生命周期
              上述源码 ── scripts/build.mjs ── lib/client.js
 宿主 ModuleLoader ── require('react') / require(UI primitives) ── 设置页

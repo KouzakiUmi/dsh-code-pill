@@ -53,6 +53,7 @@ test('defaults: exact default shape with direct palette objects', () => {
     sentenceFallback: true,
     thinkRainbow: false,
     rowTint: false,
+    displaySmooth: false,
     rowColors: { light: { ...CP_SETTINGS.ROW_TINTS.light }, dark: { ...CP_SETTINGS.ROW_TINTS.dark } },
     fontScale: 0.94,
     radius: 4,
@@ -185,6 +186,13 @@ test('normalize: rowTint is a strict boolean and defaults to off', () => {
   assert.equal(CP_SETTINGS.normalize({ version: 1 }).rowTint, false)
   assert.equal(CP_SETTINGS.normalize({ version: 1, rowTint: true }).rowTint, true)
   assert.equal(CP_SETTINGS.presetConfig('minimal').rowTint, false)
+})
+
+test('normalize: displaySmooth is a strict boolean and defaults to off', () => {
+  throws(() => CP_SETTINGS.normalize({ version: 1, displaySmooth: 1 }), /displaySmooth/)
+  assert.equal(CP_SETTINGS.normalize({ version: 1 }).displaySmooth, false)
+  assert.equal(CP_SETTINGS.normalize({ version: 1, displaySmooth: true }).displaySmooth, true)
+  assert.equal(CP_SETTINGS.presetConfig('cool').displaySmooth, false)
 })
 
 test('row tints: every colour is readable on both page backgrounds and the category hues differ', () => {
