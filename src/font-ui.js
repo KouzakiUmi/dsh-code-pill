@@ -90,6 +90,15 @@ var sessionFonts = [];
 
 		function VarRow(props) {
 			var entry = props.entry;
+            var expandedRef = React.useState(false);
+            var expanded = expandedRef[0], setExpanded = expandedRef[1];
+            var picker = h(FamilyPicker, {
+                value: entry.stack,
+                placeholder: "字体族，多个用逗号分隔",
+                compact: true,
+                systemFonts: props.systemFonts,
+                onChange: props.onChange,
+            });
 			return h("div", { className: "dfl-row" },
 				h("div", { className: "dfl-rowHead" },
 					h("label", { className: "dfl-toggle" },
@@ -100,13 +109,17 @@ var sessionFonts = [];
 						}),
 						h("span", { className: "dfl-label" }, props.label)),
 					h("code", { className: "dfl-varName" }, props.name)),
-				h(FamilyPicker, {
-					value: entry.stack,
-					placeholder: "字体族，多个用逗号分隔",
-					compact: true,
-					systemFonts: props.systemFonts,
-					onChange: props.onChange,
-				}),
+                expanded ? h(React.Fragment, null, picker,
+                    h("div", { className: "dfl-varEditorActions" }, h("button", {
+                        type: "button", className: "dfl-btn", onClick: function () { setExpanded(false); },
+                    }, "收起选择器")))
+                    : h("div", { className: "dfl-compactPicker" },
+                        h("input", {
+                            className: "dfl-input", type: "text", "aria-label": props.label + "字体栈",
+                            spellCheck: false, placeholder: "字体族，多个用逗号分隔", value: entry.stack,
+                            onChange: function (event) { props.onChange(event.target.value); },
+                        }),
+                        h("button", { type: "button", className: "dfl-btn", onClick: function () { setExpanded(true); } }, "选择字体")),
 				props.hint ? h("p", { className: "dfl-hint" }, props.hint) : null);
 		}
 
@@ -144,6 +157,8 @@ var sessionFonts = [];
 			var copiedRef = React.useState(false);
 			var copied = copiedRef[0];
 			var setCopied = copiedRef[1];
+            var copyStatusRef = React.useState('');
+            var copyStatus = copyStatusRef[0], setCopyStatus = copyStatusRef[1];
 
             // Only the current client session's authorized enumeration is offered.
             var systemRef = React.useState(function () { return sessionFonts; });
@@ -239,11 +254,11 @@ var sessionFonts = [];
 			var copyCss = function () {
 				try {
 					window.navigator.clipboard.writeText(css).then(function () {
-						if (active.current) setCopied(true);
+                        if (active.current) { setCopied(true); setCopyStatus('CSS 已复制到剪贴板。'); }
 
-					}, function () { if (active.current) setCopied(false); });
+                    }, function () { if (active.current) { setCopied(false); setCopyStatus('复制失败，请在上方文本框中手动选择复制。'); } });
 				} catch (error) {
-					setCopied(false);
+                    setCopied(false); setCopyStatus('复制失败，请在上方文本框中手动选择复制。');
 				}
 			};
 
@@ -268,7 +283,7 @@ var sessionFonts = [];
 
 			return h("div", { className: "dfl-root" },
 				h("div", { className: "dfl-head" },
-					h("h3", { className: "dfl-title" }, "字体"),
+					h("h3", { className: "dfl-title" }, "字体与字号"),
 					h("p", { className: "dfl-desc" }, summary)),
 
 				h("div", { className: "dfl-master" },
@@ -321,6 +336,7 @@ var sessionFonts = [];
 									key: scale,
 									type: "button",
 									className: "dfl-btn" + (Number(state.uiScale) === scale ? " dfl-btnActive" : ""),
+                                    'aria-pressed': Number(state.uiScale) === scale,
 									onClick: function () { patchState({ uiScale: scale, master: true }); },
 								}, scale + "%");
 							}))),
@@ -339,7 +355,7 @@ var sessionFonts = [];
 					h("p", { className: "dfl-hint" }, "整体缩放使用 CSS zoom 放大布局，界面文字、间距与图标一起放大；并非浏览器缩放，具体弹窗布局需按宿主核验。会话正文另有独立字号，也可用官方「外观 → 字号大小」。都是点一下即时生效。")),
 
                 h("div", { className: "dfl-actions" },
-                    h("button", { type: "button", className: "dfl-btn", onClick: restoreDefaults }, "清除字体、字号与缩放设置")),
+                    h("button", { type: "button", className: "dfl-btn", title: "包括高级槽位与自定义选择器规则", onClick: restoreDefaults }, "清除全部字体设置")),
 
 				h(Fold, { className: "dfl-group" },
 					h("summary", null, "高级：逐部位微调",
@@ -403,7 +419,8 @@ var sessionFonts = [];
 					h("div", { className: "dfl-rows" },
 						h("p", { className: "dfl-hint" }, "下面是当前生效的 CSS。想脱离本插件固化，可把等价设置写进 profile patch 的 ui-theme 条目（textFontFamily / codeFontFamily / terminalFontFamily），或放进任意自定义 CSS 注入点。"),
 						h("textarea", { className: "dfl-export", readOnly: true, value: css, spellCheck: false }),
-						h("button", { type: "button", className: "dfl-btn", onClick: copyCss }, copied ? "已复制" : "复制 CSS"))));
+						h("button", { type: "button", className: "dfl-btn", onClick: copyCss }, copied ? "已复制" : "复制 CSS"),
+                        h("p", { className: "dfl-hint", role: "status" }, copyStatus))));
 		}
 
 

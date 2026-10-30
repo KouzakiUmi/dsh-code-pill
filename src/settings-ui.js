@@ -80,14 +80,16 @@ function installSettings(ctx, store, fontStore) {
     return nodes;
   }
   /** 折叠动作行示意：图标与动作名用类别色，状态词用状态色，描述保持宿主灰。 */
-  function rowSamples(colors, gray) {
+  function rowSamples(colors, gray, enabled) {
     function sample(key, tint, title, description, status, statusColor) {
+      var actionColor = enabled && tint ? tint : gray;
       return h('div', { className: 'dshcp-preview-row', key: key },
-        h('span', { className: 'dshcp-preview-icon', style: { color: tint || gray }, 'aria-hidden': true }),
-        h('span', { style: { color: tint ? 'color-mix(in oklab, ' + tint + ' 82%, ' + gray + ')' : gray } }, title),
-        h('span', { className: 'dshcp-preview-desc', style: { color: gray } }, '· ' + description, status ? ' ' : null, status ? h('span', { style: { color: statusColor } }, status) : null));
+        h('span', { className: 'dshcp-preview-icon', style: { color: actionColor }, 'aria-hidden': true }),
+        h('span', { style: { color: enabled && tint ? 'color-mix(in oklab, ' + tint + ' 82%, ' + gray + ')' : gray } }, title),
+        h('span', { className: 'dshcp-preview-desc', style: { color: gray } }, '· ' + description, status ? ' ' : null, status ? h('span', { style: { color: enabled ? statusColor : gray } }, status) : null));
     }
-    return CP_SETTINGS.ROW_CATEGORIES.map(function (category) {
+    var featured = { read: true, search: true, write: true, run: true, think: true };
+    return CP_SETTINGS.ROW_CATEGORIES.filter(function (category) { return featured[category.key]; }).map(function (category) {
       return sample(category.key, colors[category.key], category.title, category.description);
     }).concat([sample('job', colors.run, '读取任务输出', 'bash-a256 ·', '已完成', colors.ok),
       sample('err', colors.err, '读取', 'Permission denied'), sample('warn', colors.warn, '结束任务', 'bash-2 ·', '已中断', colors.warn)]);
@@ -109,7 +111,9 @@ function installSettings(ctx, store, fontStore) {
       h('p', null, '声明 ', code('const count = 42', null, true), '，调用 ', code('print("hello")', null, true), '。'),
       h('p', null, '执行 ', code('npm run build'), '，检查 ', code('Dockerfile', 'DOCKER'), '。'),
       h('pre', { className: 'dshcp-preview-block', style: blockStyle }, cfg.blockTheme === 'preset' ? tokenText('const count = 42; // 当前预设配色', Object.assign({}, cfg, { syntax: true }), theme) : 'const count = 42; // 保留宿主配色（示意）'),
-      h('div', { className: 'dshcp-preview-rows', 'aria-label': '折叠动作行预览' }, rowSamples(cfg.rowColors[theme], isDark ? '#8a8f98' : '#7b8190')));
+      h('div', { className: 'dshcp-preview-rows', 'aria-label': '折叠动作行预览' },
+        h('div', { className: 'dshcp-preview-rows-caption' }, cfg.rowTint ? '动作行预览 · 着色开启' : '动作行预览 · 当前关闭，显示宿主灰阶'),
+        rowSamples(cfg.rowColors[theme], isDark ? '#8a8f98' : '#7b8190', cfg.rowTint)));
   }
   function CodeAppearance() {
     var saved = React.useSyncExternalStore(store.subscribe, store.getSnapshot);
@@ -128,7 +132,12 @@ function installSettings(ctx, store, fontStore) {
       setDraft(function (old) { return Object.assign({}, old, { rowColors: Object.assign({}, old.rowColors, { [theme]: Object.assign({}, old.rowColors[theme], { [kind]: value }) }) }); });
       setStatus('');
     }
-    function button(label, onClick, primary, disabled) { return h(ui.Button, { type: 'button', size: 'sm', variant: primary ? 'primary' : 'outline', onClick: onClick, disabled: !!disabled }, label); }
+    function button(label, onClick, primary, disabled, extra) { return h(ui.Button, Object.assign({ type: 'button', size: 'sm', variant: primary ? 'primary' : 'outline', onClick: onClick, disabled: !!disabled }, extra || {}), label); }
+    function themeToggle() {
+      return h('div', { className: 'dshcp-theme-toggle', role: 'group', 'aria-label': '编辑与预览主题' },
+        button('浅色', function () { setTheme('light'); }, theme === 'light', false, { 'aria-pressed': theme === 'light' }),
+        button('深色', function () { setTheme('dark'); }, theme === 'dark', false, { 'aria-pressed': theme === 'dark' }));
+    }
     function range(label, key, min, max, step, suffix) {
       return h('label', { className: 'dshcp-slider', key: key }, h('span', null, label, h('output', null, String(Math.round(draft[key] * 100) / 100), suffix)),
         h('input', { type: 'range', min: min, max: max, step: step, value: draft[key], 'aria-label': label, onChange: function (event) { change(key, Number(event.target.value)); } }));
@@ -136,43 +145,48 @@ function installSettings(ctx, store, fontStore) {
     var rowPage = theme === 'dark' ? '#1e1e1e' : '#ffffff';
     var rowWarnings = CP_SETTINGS.ROW_KEYS.filter(function (kind) { return CP_SETTINGS.contrast(draft.rowColors[theme][kind], rowPage) < CP_SETTINGS.AA_NORMAL; });
     var warnings = CP_SETTINGS.audit(draft, theme, theme === 'dark' ? '#1e1e1e' : '#ffffff').filter(function (item) { return !item.pass; });
-    return h('div', { className: 'dshcp-settings' },
-      h('header', { className: 'dshcp-settings-header' }, h('div', null, h('h2', null, 'Code Pill'), h('p', null, '让代码融入阅读，而不是打断阅读。')), h('span', { className: 'dshcp-local-tag' }, '本浏览器设置')),
+    return h('div', { className: 'dshcp-appearance' },
       h('div', { className: 'dshcp-settings-toolbar', role: 'group', 'aria-label': 'Code Pill 操作' }, h('span', { role: 'status', className: 'dshcp-hint' }, status || (dirty ? '有未保存的更改' : '已与保存设置一致')),
         h('div', { className: 'dshcp-actions' }, button('恢复默认', function () { setDraft(CP_SETTINGS.defaults()); setStatus('默认设置已进入草稿；保存后应用。'); }),
           button('取消更改', function () { setDraft(CP_SETTINGS.normalize(saved)); setStatus('已取消未保存的更改。'); }, false, !dirty),
           button('保存并应用', function () { try { store.save(draft); setStatus('已保存并应用。'); } catch (err) { setStatus('保存失败：' + err.message); } }, true, !dirty))),
-      h('section', { className: 'dshcp-panel' }, h('h3', null, '外观预设'), h('p', { className: 'dshcp-hint' }, '选择会替换色板与排版草稿；保存后才应用。'),
+      h('section', { className: 'dshcp-panel' }, h('div', { className: 'dshcp-section-heading' }, h('h3', null, '外观预设', draft.preset === 'custom' ? h('span', { className: 'dshcp-custom-tag' }, '自定义') : null), themeToggle()),
+        h('p', { className: 'dshcp-hint' }, '选择会替换色板与排版草稿，保留行为开关；保存后才应用。'),
         h('div', { className: 'dshcp-preset-grid' }, CP_SETTINGS.PRESETS.map(function (preset) {
-          return h('button', { type: 'button', key: preset.id, className: 'dshcp-preset', 'aria-pressed': draft.preset === preset.id, onClick: function () { setDraft(function (old) { return Object.assign(CP_SETTINGS.presetConfig(preset.id), { thinkRainbow: old.thinkRainbow, rowTint: old.rowTint, displaySmooth: old.displaySmooth, rowColors: old.rowColors }); }); setStatus(''); } },
-            h('span', { className: 'dshcp-swatches', 'aria-hidden': true }, ['plain', 'kwd', 'str', 'num'].map(function (role) { return h('i', { key: role, style: { background: preset[theme][role] } }); })),
+          var previewConfig = CP_SETTINGS.presetConfig(preset.id);
+          var previewStyle = Object.assign({}, CP_SETTINGS.previewStyle(previewConfig, theme), { background: theme === 'dark' ? '#1e1e1e' : '#ffffff' });
+          return h('button', { type: 'button', key: preset.id, className: 'dshcp-preset', 'aria-pressed': draft.preset === preset.id, onClick: function () { setDraft(function (old) { return Object.assign(CP_SETTINGS.presetConfig(preset.id), { toolPath: old.toolPath, sentenceFallback: old.sentenceFallback, thinkRainbow: old.thinkRainbow, rowTint: old.rowTint, displaySmooth: old.displaySmooth, rowColors: old.rowColors }); }); setStatus(''); } },
+            h('span', { className: 'dshcp-preset-sample', 'data-dshcp-preview': '', style: previewStyle, 'aria-hidden': true },
+              h('code', { className: 'dshcp-pill' }, h('span', { style: { color: preset[theme].kwd } }, 'const'), ' count = ', h('span', { style: { color: preset[theme].num } }, '42'))),
             h('strong', null, preset.name), h('small', null, preset.description));
-        })), draft.preset === 'custom' ? h('p', { className: 'dshcp-hint' }, '当前：自定义') : null),
-      h('section', { className: 'dshcp-panel' }, h('div', { className: 'dshcp-section-heading' }, h('h3', null, '色板与预览'), h('div', { className: 'dshcp-theme-toggle', role: 'group', 'aria-label': '编辑色板主题' },
-        button('浅色', function () { setTheme('light'); }, theme === 'light'), button('深色', function () { setTheme('dark'); }, theme === 'dark'))),
+        }))),
+      h('section', { className: 'dshcp-panel' }, h('div', { className: 'dshcp-section-heading' }, h('h3', null, '实时预览')),
         h(Preview, { config: draft, theme: theme }),
-        h('div', { className: 'dshcp-color-grid' }, Object.keys(colorNames).map(function (role) {
-          return h('label', { className: 'dshcp-color-field', key: role }, h('span', null, colorNames[role]),
-            h('div', null, h('input', { type: 'color', value: draft[theme][role], 'aria-label': colorNames[role] + '颜色', onChange: function (event) { color(role, event.target.value); } }),
-              h(ui.Input, { key: theme + draft[theme][role], defaultValue: draft[theme][role], 'aria-label': colorNames[role] + '十六进制', maxLength: 7, onBlur: function (event) {
-                var value = event.target.value;
-                if (/^#[0-9a-f]{6}$/i.test(value)) color(role, value.toLowerCase());
-                else { event.target.value = draft[theme][role]; setStatus('颜色需要完整的 #RRGGBB；已恢复原值。'); }
-              } })));
-        })),
-        warnings.length ? h('p', { className: 'dshcp-warning', role: 'status' }, '低对比度提醒：', warnings.map(function (item) { return (colorNames[item.role] || item.role) + ' ' + item.ratio.toFixed(2) + ':1'; }).join('；'), '。仍可保存。') : h('p', { className: 'dshcp-hint' }, '当前预览背景下，全部文字达到 4.5:1。实际会话背景可能不同。'),
-        h('div', { className: 'dshcp-section-heading dshcp-subheading' }, h('h3', null, '折叠动作行颜色'), button('恢复行颜色默认', function () { setDraft(function (old) { return Object.assign({}, old, { rowColors: CP_SETTINGS.defaults().rowColors }); }); setStatus('行颜色已恢复默认；保存后应用。'); })),
-        h('p', { className: 'dshcp-hint' }, '颜色用于折叠的工具行：图标与动作名用类别色，失败行与完成状态词用状态色。需在下方「显示与排版」开启「折叠动作行着色」才会应用到聊天；选择预设不会改变这些颜色。'),
-        h('div', { className: 'dshcp-color-grid' }, CP_SETTINGS.ROW_KEYS.map(function (kind) {
-          return h('label', { className: 'dshcp-color-field', key: kind }, h('span', null, rowNames[kind]),
-            h('div', null, h('input', { type: 'color', value: draft.rowColors[theme][kind], 'aria-label': rowNames[kind] + '行颜色', onChange: function (event) { rowColor(kind, event.target.value); } }),
-              h(ui.Input, { key: theme + draft.rowColors[theme][kind], defaultValue: draft.rowColors[theme][kind], 'aria-label': rowNames[kind] + '行十六进制', maxLength: 7, onBlur: function (event) {
-                var value = event.target.value;
-                if (/^#[0-9a-f]{6}$/i.test(value)) rowColor(kind, value.toLowerCase());
-                else { event.target.value = draft.rowColors[theme][kind]; setStatus('颜色需要完整的 #RRGGBB；已恢复原值。'); }
-              } })));
-        })),
-        rowWarnings.length ? h('p', { className: 'dshcp-warning', role: 'status' }, '行颜色低对比度提醒：', rowWarnings.map(function (kind) { return rowNames[kind] + ' ' + CP_SETTINGS.contrast(draft.rowColors[theme][kind], rowPage).toFixed(2) + ':1'; }).join('；'), '。仍可保存。') : h('p', { className: 'dshcp-hint' }, '当前预览背景下，行颜色全部达到 4.5:1。')),
+        h('details', { className: 'dshcp-advanced' }, h('summary', null, '自定义代码颜色', h('span', { className: 'dshcp-count' }, '9 项')),
+          h('p', { className: 'dshcp-hint' }, '当前编辑' + (theme === 'dark' ? '深色' : '浅色') + '色板；修改后预设标记为自定义。'),
+          h('div', { className: 'dshcp-color-grid' }, Object.keys(colorNames).map(function (role) {
+            return h('label', { className: 'dshcp-color-field', key: role }, h('span', null, colorNames[role]),
+              h('div', null, h('input', { type: 'color', value: draft[theme][role], 'aria-label': colorNames[role] + '颜色', onChange: function (event) { color(role, event.target.value); } }),
+                h(ui.Input, { key: theme + draft[theme][role], defaultValue: draft[theme][role], 'aria-label': colorNames[role] + '十六进制', maxLength: 7, onBlur: function (event) {
+                  var value = event.target.value;
+                  if (/^#[0-9a-f]{6}$/i.test(value)) color(role, value.toLowerCase());
+                  else { event.target.value = draft[theme][role]; setStatus('颜色需要完整的 #RRGGBB；已恢复原值。'); }
+                } })));
+          })),
+          warnings.length ? h('p', { className: 'dshcp-warning', role: 'status' }, '低对比度提醒：', warnings.map(function (item) { return (colorNames[item.role] || item.role) + ' ' + item.ratio.toFixed(2) + ':1'; }).join('；'), '。仍可保存。') : h('p', { className: 'dshcp-hint' }, '当前预览背景下，全部文字达到 4.5:1。实际会话背景可能不同。')),
+        h('details', { className: 'dshcp-advanced' }, h('summary', null, '自定义动作行颜色', h('span', { className: 'dshcp-count' }, '15 项')),
+          h('p', { className: 'dshcp-hint' }, '颜色用于折叠的工具行：图标与动作名用类别色，失败行与完成状态词用状态色。需在下方「显示与排版」开启「折叠动作行着色」才会应用到聊天；选择预设不会改变这些颜色。'),
+          h('div', { className: 'dshcp-advanced-actions' }, button('恢复行颜色默认', function () { setDraft(function (old) { return Object.assign({}, old, { rowColors: CP_SETTINGS.defaults().rowColors }); }); setStatus('行颜色已恢复默认；保存后应用。'); })),
+          h('div', { className: 'dshcp-color-grid' }, CP_SETTINGS.ROW_KEYS.map(function (kind) {
+            return h('label', { className: 'dshcp-color-field', key: kind }, h('span', null, rowNames[kind]),
+              h('div', null, h('input', { type: 'color', value: draft.rowColors[theme][kind], 'aria-label': rowNames[kind] + '行颜色', onChange: function (event) { rowColor(kind, event.target.value); } }),
+                h(ui.Input, { key: theme + draft.rowColors[theme][kind], defaultValue: draft.rowColors[theme][kind], 'aria-label': rowNames[kind] + '行十六进制', maxLength: 7, onBlur: function (event) {
+                  var value = event.target.value;
+                  if (/^#[0-9a-f]{6}$/i.test(value)) rowColor(kind, value.toLowerCase());
+                  else { event.target.value = draft.rowColors[theme][kind]; setStatus('颜色需要完整的 #RRGGBB；已恢复原值。'); }
+                } })));
+          })),
+          rowWarnings.length ? h('p', { className: 'dshcp-warning', role: 'status' }, '行颜色低对比度提醒：', rowWarnings.map(function (kind) { return rowNames[kind] + ' ' + CP_SETTINGS.contrast(draft.rowColors[theme][kind], rowPage).toFixed(2) + ':1'; }).join('；'), '。仍可保存。') : h('p', { className: 'dshcp-hint' }, '当前预览背景下，行颜色全部达到 4.5:1。'))),
       h('section', { className: 'dshcp-panel' }, h('h3', null, '显示与排版'),
         h('div', { className: 'dshcp-control-row' }, h('div', null, h('strong', null, '行内语法着色'), h('small', null, '关闭后保留统一文字颜色')), h(ui.Switch, { checked: draft.syntax, label: '行内语法着色', onChange: function (value) { change('syntax', value); } })),
         h('div', { className: 'dshcp-control-row' }, h('div', null, h('strong', null, '聊天文件路径'), h('small', null, '统一工具摘要、正文文件引用、搜索结果与读取标题的路径外观')), h(ui.Switch, { checked: draft.toolPath, label: '聊天文件路径', onChange: function (value) { change('toolPath', value); } })),
@@ -191,7 +205,8 @@ function installSettings(ctx, store, fontStore) {
   var FontSettings = createFontSettings(React, fontStore);
   function SettingsPage() {
     var tabState = React.useState('appearance'), tab = tabState[0], setTab = tabState[1];
-    return h('div', null,
+    return h('div', { className: 'dshcp-settings' },
+      h('header', { className: 'dshcp-settings-header' }, h('div', null, h('h2', null, 'Code Pill'), h('p', null, '让代码融入阅读，而不是打断阅读。')), h('span', { className: 'dshcp-local-tag' }, '本浏览器设置')),
       h('div', { className: 'dshcp-tabs', role: 'tablist', 'aria-label': 'Code Pill 设置分类' }, ['appearance', 'fonts'].map(function (id, index) {
         return h('button', { key: id, type: 'button', role: 'tab', id: 'dshcp-tab-' + id, 'aria-controls': 'dshcp-panel-' + id, 'aria-selected': tab === id, tabIndex: tab === id ? 0 : -1,
           onClick: function () { setTab(id); }, onKeyDown: function (event) {
@@ -199,6 +214,7 @@ function installSettings(ctx, store, fontStore) {
             if (next) { event.preventDefault(); setTab(next); document.getElementById('dshcp-tab-' + next).focus(); }
           } }, ['代码外观', '字体'][index]);
       })),
+      h('p', { className: 'dshcp-tab-note' }, tab === 'appearance' ? '外观修改先进入草稿，保存后应用。' : '字体与字号修改即时应用，并独立保存。'),
       h('div', { role: 'tabpanel', id: 'dshcp-panel-appearance', 'aria-labelledby': 'dshcp-tab-appearance', hidden: tab !== 'appearance' }, h(CodeAppearance)),
       h('div', { role: 'tabpanel', id: 'dshcp-panel-fonts', 'aria-labelledby': 'dshcp-tab-fonts', hidden: tab !== 'fonts', 'data-dshcp-preview': '' }, tab === 'fonts' ? h(FontSettings) : null));
   }

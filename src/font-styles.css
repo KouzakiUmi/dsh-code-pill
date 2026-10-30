@@ -3,15 +3,15 @@
  * 全部走核心的语义令牌（--dsw-alias-*），跟随主题明暗，不写死颜色。
  */
 
-.dshcp-tabs { display: flex; gap: 8px; margin-bottom: 20px; padding-bottom: 8px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
-.dshcp-tabs button { font: inherit; padding: 8px 16px; border: 1px solid transparent; border-radius: 8px; color: var(--dsw-alias-label-secondary); background: transparent; cursor: pointer; }
+.dshcp-tabs { display: flex; gap: 8px; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+.dshcp-tabs button { font: inherit; min-height: 38px; padding: 8px 16px; border: 1px solid transparent; border-radius: 8px; color: var(--dsw-alias-label-secondary); background: transparent; cursor: pointer; }
 .dshcp-tabs button[aria-selected="true"] { color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); background: var(--dsw-alias-bg-layer-1); }
 
 .dfl-root {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 4px 0 28px;
+  padding: 0 0 20px;
   color: var(--dsw-alias-label-primary);
 }
 
@@ -127,6 +127,7 @@
 
 .dfl-btn {
   font: inherit;
+  min-height: 34px;
   font-size: 13px;
   line-height: 18px;
   padding: 6px 12px;
@@ -200,6 +201,26 @@
   gap: 4px;
 }
 
+.dfl-compactPicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.dfl-compactPicker > .dfl-input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.dfl-compactPicker > .dfl-btn {
+  flex: none;
+}
+
+.dfl-varEditorActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
 .dfl-rowHead {
   display: flex;
   align-items: center;
@@ -248,7 +269,7 @@
 
 .dfl-hint {
   margin: 0;
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.6;
   color: var(--dsw-alias-label-tertiary);
   word-break: break-word;

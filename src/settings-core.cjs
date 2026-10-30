@@ -73,10 +73,10 @@ var PRESETS = [
   {
     id: 'amber',
     name: '琥珀经典',
-    description: '琥珀签名色的经典组合，插件默认色板。',
+    description: '琥珀正文，蓝紫语法色与柔和暖底。',
     light: {
       plain: '#916200', kwc: '#9c27b0', kwd: '#0451a5', str: '#8a1e1e',
-      com: '#64707a', num: '#0a7a52', bg: '#916200',
+      com: '#5d6973', num: '#0a7a52', bg: '#916200',
       badgeBg: '#f3e7c6', badgeText: '#6e4a00',
     },
     dark: {
@@ -88,9 +88,9 @@ var PRESETS = [
   {
     id: 'readable',
     name: '柔和阅读',
-    description: '中性石板签名色，整体对比适中。',
+    description: '石板正文，低饱和语法色，适合长读。',
     light: {
-      plain: '#365066', kwc: '#7d3c98', kwd: '#2a5fa8', str: '#8a1e1e',
+      plain: '#365066', kwc: '#6f4b8c', kwd: '#2a5fa8', str: '#8b5550',
       com: '#525e69', num: '#3f6a0d', bg: '#365066',
       badgeBg: '#e4e9ef', badgeText: '#2e3d4d',
     },
@@ -103,40 +103,40 @@ var PRESETS = [
   {
     id: 'cool',
     name: '冷调清晰',
-    description: '青蓝签名色的冷色系配色。',
+    description: '青蓝正文，冷色语法信号与清爽底色。',
     light: {
       plain: '#0b4a63', kwc: '#7a4bb2', kwd: '#2a5fa8', str: '#96302f',
       com: '#5a6d78', num: '#3f6a0d', bg: '#0b4a63',
       badgeBg: '#dceef4', badgeText: '#0b4a61',
     },
     dark: {
-      plain: '#7cc7de', kwc: '#b9a0e0', kwd: '#6496ce', str: '#e0a58a',
-      com: '#76995c', num: '#44a389', bg: '#7cc7de',
+      plain: '#7cc7de', kwc: '#b9a0e0', kwd: '#72a2d8', str: '#e0a58a',
+      com: '#84a76d', num: '#55b196', bg: '#7cc7de',
       badgeBg: '#17323d', badgeText: '#8fd2e8',
     },
   },
   {
     id: 'editor',
     name: '编辑器经典',
-    description: '贴近 VS Code Light+/Dark+ 的取色。',
+    description: '接近 VS Code Light+ / Dark+ 的熟悉配色。',
     light: {
       plain: '#795e26', kwc: '#0000cc', kwd: '#000080', str: '#a13326',
-      com: '#64707a', num: '#0a7a52', bg: '#795e26',
+      com: '#5d6973', num: '#0a7a52', bg: '#795e26',
       badgeBg: '#eee9dc', badgeText: '#54400f',
     },
     dark: {
       plain: '#dcdcaa', kwc: '#569cd6', kwd: '#4ec9b0', str: '#ce9178',
-      com: '#74ab60', num: '#57a08a', bg: '#dcdcaa',
+      com: '#74ab60', num: '#5da48f', bg: '#dcdcaa',
       badgeBg: '#33301f', badgeText: '#d6d2a8',
     },
   },
   {
     id: 'contrast',
     name: '高对比',
-    description: '明暗差距较大的高对比配色。',
+    description: '更高文字明暗差，语法角色更醒目。',
     light: {
       plain: '#1f1f1f', kwc: '#6d21b3', kwd: '#123f9e', str: '#8f1d1d',
-      com: '#6b6b6b', num: '#3f6a0d', bg: '#1f1f1f',
+      com: '#626262', num: '#3f6a0d', bg: '#1f1f1f',
       badgeBg: '#dcdcdc', badgeText: '#1a1a1a',
     },
     dark: {
@@ -148,7 +148,7 @@ var PRESETS = [
   {
     id: 'minimal',
     name: '素雅简约',
-    description: '中性灰签名色，淡底色与紧凑圆角。',
+    description: '中性正文，更淡底色、小圆角与紧凑间距。',
     layout: { radius: 3, padding: 0.2, bgOpacity: 0.025 },
     light: {
       plain: '#333333', kwc: '#7d3c98', kwd: '#2a5fa8', str: '#8a1e1e',

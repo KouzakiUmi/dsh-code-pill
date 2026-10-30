@@ -1,11 +1,15 @@
 /**
  * 显示平滑：保留宿主回复组件，只缓冲可见 Text 的追加内容。
- * 字符按帧揭示，会话底部由同一个时钟跟随；历史消息与非运行态不排队。
+ * 字符按帧揭示，承载未揭示文字的块级结构随文字一起出现；历史消息与非运行态不排队。
+ * 滚动只补齐宿主没有覆盖的帧间增长，不夺回宿主或用户已经确定的视口位置。
  */
 var DSHCP_SMOOTH_SKIP = '[aria-hidden="true"], [aria-live], [contenteditable="true"], script, style, textarea, input';
-var DSHCP_SMOOTH_INITIAL_CHARS = 120;
 var DSHCP_SMOOTH_MAX_FRAME_MS = 32;
 var DSHCP_SMOOTH_MAX_MOVE_PX = 8;
+// 超过这个距离的底部变化不是逐字增长，而是宿主或阅读器一次性移动；跟随直接落位，不拖尾。
+var DSHCP_SMOOTH_SNAP_PX = 24;
+var DSHCP_SMOOTH_RETIRED_LIMIT = 32;
+var DSHCP_SMOOTH_HOLD_ATTR = 'data-dshcp-smooth-hold';
 
 function dshcpSmoothChars(text) {
 	return Array.from(text);
@@ -18,21 +22,76 @@ function dshcpSmoothPrefix(left, right) {
 	return index;
 }
 
+/**
+ * haystack 的后缀与 head 的前缀最多重合多少字符。
+ * 用于识别「宿主把同一段正文拆成新节点」：新节点的开头其实已经显示过。
+ */
+function dshcpSmoothOverlap(haystack, head) {
+	var limit = Math.min(haystack.length, head.length);
+	if (limit === 0) return 0;
+	var pattern = head.slice(0, limit);
+	var text = haystack.slice(haystack.length - limit);
+	var table = [0];
+	for (var i = 1; i < pattern.length; i++) {
+		var k = table[i - 1];
+		while (k > 0 && pattern[i] !== pattern[k]) k = table[k - 1];
+		if (pattern[i] === pattern[k]) k++;
+		table[i] = k;
+	}
+	var matched = 0;
+	for (var j = 0; j < text.length; j++) {
+		while (matched > 0 && text[j] !== pattern[matched]) matched = table[matched - 1];
+		if (text[j] === pattern[matched]) matched++;
+		// 完整命中后继续匹配，只有末位命中才代表「新文本的前缀已经整段显示过」。
+		if (matched === pattern.length) {
+			if (j === text.length - 1) return limit;
+			matched = table[matched - 1];
+		}
+	}
+	return matched;
+}
+
+/**
+ * 新 Text 首次登记时能从退役文字里继承多少字符。
+ * 宿主重排 Markdown（内联元素、块类型变化、增量拆分）会把旧 Text 换成内容相同的新节点；
+ * 只按节点身份记账会让这些节点从 0 开始揭示，用户看到整段重播。
+ */
+function dshcpSmoothInherit(chars, retired) {
+	var full = chars.join('');
+	var best = 0;
+	for (var i = retired.length - 1; i >= 0; i--) {
+		var record = retired[i];
+		if (record.text.indexOf(full) !== -1) return chars.length;
+		if (record.text.startsWith(full)) { if (chars.length > best) best = chars.length; continue; }
+		if (full.startsWith(record.text)) { if (record.shown > best) best = record.shown; continue; }
+		var overlap = dshcpSmoothOverlap(record.visible, chars);
+		if (overlap > best) best = overlap;
+	}
+	return best;
+}
+
 function dshcpSmoothRunning(node) {
 	return !!(node && node.data && node.data.status === 'running');
 }
+
+/**
+ * 承载待揭示文字的块级结构：代码块、引用、列表项、表格、标题等。
+ * 这些容器在文字出现前先成形，会让用户先看到一整块空格式，再等到字。
+ * 行内 <code> 不在此列：它的胶囊由行内内容撑开，本身不会提前占版面。
+ */
+var DSHCP_SMOOTH_BLOCKS = 'pre, blockquote, ul, ol, li, table, figure, h1, h2, h3, h4, h5, h6, hr';
 
 /** One owner for text reveal and scroll follow, so both advance in the same frame. */
 function createDshcpSmoothEngine(root, options) {
 	var records = new Map();
 	var pending = new Set();
 	var ownWrites = new WeakMap();
+	var retired = [];
 	var observer = null;
 	var resize = null;
 	var port = null;
 	var active = false;
 	var running = false;
-	var activated = false;
 	var rafId = 0;
 	var lastFrame = null;
 	var debt = 0;
@@ -84,29 +143,93 @@ function createDshcpSmoothEngine(root, options) {
 		return false;
 	}
 	function drop(node) {
+		release(node);
 		records.delete(node);
 		pending.delete(node);
 		ownWrites.delete(node);
+	}
+	/** 宿主把这段文字清空或改成空白：撤下保持、丢掉缓冲，但不再回写旧文字。 */
+	function dequeue(node) {
+		drop(node);
+	}
+	/**
+	 * 块级结构保持：宿主先交出代码块、引用、列表这类结构，正文却还在逐字揭示时，
+	 * 用户会先看到一个尚无一字的空格式，再等字追上来，观感割裂。
+	 * 这里给「还没有任何可见文字」的块加标记，由 CSS 隐藏内容但保留挂载与布局：
+	 * 宿主 DOM、React 与选择器都不受影响，一旦块内出现文字就立刻撤下。
+	 */
+	var held = new Set();
+	function blockOf(node) {
+		var parent = node.parentElement;
+		if (parent === null) return null;
+		var block = parent.closest(DSHCP_SMOOTH_BLOCKS);
+		return block !== null && block !== root && root.contains(block) ? block : null;
+	}
+	/** 块内是否已有任何非空白文字（包括本引擎已揭示的部分）。 */
+	function hasVisibleText(block) {
+		return block.textContent.trim() !== '';
+	}
+	function hold(node) {
+		var block = blockOf(node);
+		if (block === null || held.has(block) || hasVisibleText(block)) return;
+		// 宿主 DOM 与 React 都不认识这个属性；只在块内文字出现前短暂存在。
+		held.add(block);
+		block.setAttribute(DSHCP_SMOOTH_HOLD_ATTR, '');
+	}
+	function release(node) {
+		var block = blockOf(node);
+		if (block === null || !held.has(block)) return;
+		held.delete(block);
+		block.removeAttribute(DSHCP_SMOOTH_HOLD_ATTR);
+	}
+	function releaseAll() {
+		held.forEach(function (block) {
+			block.removeAttribute(DSHCP_SMOOTH_HOLD_ATTR);
+		});
+		held.clear();
+	}
+	/**
+	 * 节点被宿主移除前，把它已显示的文字交给退役池，再丢弃本节点缓冲。
+	 */
+	function retire(node) {
+		remember(records.get(node));
+		drop(node);
+	}
+	/**
+	 * 记录一段已显示文字，供之后被宿主替换出的新节点继承进度。
+	 * 只记已显示部分：尚未揭示的内容仍算新内容，之后照常逐帧展开。
+	 */
+	function remember(record) {
+		if (record === undefined || record.shown <= 0) return;
+		var visible = record.chars.slice(0, record.shown);
+		retired.push({ visible: visible, shown: record.shown, text: visible.join('') });
+		if (retired.length > DSHCP_SMOOTH_RETIRED_LIMIT) retired.shift();
 	}
 	function settle(node) {
 		if (!revealable(node)) { drop(node); return; }
 		var chars = dshcpSmoothChars(node.nodeValue);
 		records.set(node, { chars: chars, full: node.nodeValue, shown: chars.length });
 		pending.delete(node);
+		release(node);
 	}
 	function enqueue(node, full) {
 		if (!playable(node, full)) {
 			// 宿主清空或改成空白：丢掉缓冲，不把旧文字写回去。
-			drop(node);
+			dequeue(node);
 			return;
 		}
 		var chars = dshcpSmoothChars(full);
 		var previous = records.get(node);
-		var shown = previous === undefined ? 0 : Math.min(previous.shown, dshcpSmoothPrefix(previous.chars, chars));
+		var shown = previous === undefined
+			? dshcpSmoothInherit(chars, retired)
+			: Math.min(previous.shown, dshcpSmoothPrefix(previous.chars, chars));
 		records.set(node, { chars: chars, full: full, shown: shown });
 		if (shown < chars.length) pending.add(node);
 		else pending.delete(node);
 		write(node, chars.slice(0, shown).join(''));
+		// 只有整段还一个字都没露出来时才让块不可见；一旦有字，格式和字同时可见。
+		if (shown > 0) release(node);
+		else if (shown < chars.length) hold(node);
 	}
 	function visit(from, reveal) {
 		forEachText(from, function (node) {
@@ -118,8 +241,7 @@ function createDshcpSmoothEngine(root, options) {
 	function forget(from) {
 		forEachText(from, function (node) {
 			if (root.contains(node)) return;
-			records.delete(node);
-			pending.delete(node);
+			retire(node);
 		});
 	}
 	function backlog() {
@@ -155,38 +277,62 @@ function createDshcpSmoothEngine(root, options) {
 			write(node, record.chars.slice(0, record.shown).join(''));
 			amount -= take;
 			if (record.shown >= record.chars.length) pending.delete(node);
+			// 首个字符落地即撤下块级保持：格式与它的第一个字同帧出现。
+			if (record.shown > 0) release(node);
 		}
 	}
 	function distanceToBottom() {
 		return port === null ? 0 : port.scrollHeight - port.scrollTop - port.clientHeight;
 	}
-	function keepPosition() {
-		if (!following || port === null) return;
-		var maximum = Math.max(0, port.scrollHeight - port.clientHeight);
-		port.scrollTop = Math.max(0, Math.min(position, maximum));
+	/**
+	 * 宿主是否正在自己跟随回复尾部。
+	 * 宿主把跟随意图写在会话根本身（`data-chat-following-tail`），它有自己的
+	 * ResizeObserver 与落位逻辑。本插件的逐字揭示本来就会让高度缓慢增长，
+	 * 宿主据此跟随已经足够平滑；此时插件再写 scrollTop 只会和宿主互相打断。
+	 */
+	function hostFollowsTail() {
+		return port !== null && port.querySelector('[data-chat-following-tail]') !== null;
 	}
+	/**
+	 * 底部跟随：只补宿主没有负责的那部分增长。
+	 * 宿主在跟随时所有权归宿主，本引擎只同步位置、不写 scrollTop；
+	 * 宿主不跟随时（用户已离开底部，或宿主没有该机制）才用阻尼补齐，
+	 * 且底部变化幅度超过逐字增长量时一律让位，不去夺回宿主或阅读器的落位结果。
+	 */
 	function follow(dtMs) {
 		if (!following || port === null) return true;
 		var target = Math.max(0, port.scrollHeight - port.clientHeight);
-		var delta = target - position;
-		if (Math.abs(delta) < 0.5 && Math.abs(velocity) < 2) {
+		if (hostFollowsTail()) {
+			position = port.scrollTop;
+			velocity = 0;
+			return Math.abs(target - port.scrollTop) < 0.5;
+		}
+		var delta = target - port.scrollTop;
+		if (Math.abs(delta) < 0.5) {
 			position = target;
 			velocity = 0;
-			port.scrollTop = target;
+			return true;
+		}
+		// 一次变化超过单帧逐字增长：宿主或阅读器已经整体移动过视口，交还给它，不抢。
+		if (Math.abs(delta) > DSHCP_SMOOTH_SNAP_PX) {
+			position = port.scrollTop;
+			velocity = 0;
+			following = false;
 			return true;
 		}
 		if (dtMs <= 0) return false;
 		var dt = dtMs / 1000;
+		position = port.scrollTop;
 		velocity += (delta * 130 - velocity * 24) * dt;
 		var next = position + velocity * dt;
 		next = Math.max(position - DSHCP_SMOOTH_MAX_MOVE_PX, Math.min(position + DSHCP_SMOOTH_MAX_MOVE_PX, next));
-		if ((delta >= 0 && next >= target) || (delta <= 0 && next <= target)) {
+		if (delta >= 0 ? next >= target : next <= target) {
 			next = target;
 			velocity = 0;
 		}
-		position = Math.max(0, next);
-		port.scrollTop = position;
-		return false;
+		port.scrollTop = Math.max(0, next);
+		position = port.scrollTop;
+		return Math.abs(target - port.scrollTop) < 0.5;
 	}
 	function finish() {
 		stop(false);
@@ -194,7 +340,7 @@ function createDshcpSmoothEngine(root, options) {
 	}
 	function maybeFinish() {
 		if (!active || running || pending.size > 0) return;
-		if (!following || port === null || (Math.abs(port.scrollHeight - port.clientHeight - position) < 0.5 && Math.abs(velocity) < 2)) finish();
+		if (!following || port === null || Math.abs(port.scrollHeight - port.clientHeight - port.scrollTop) < 0.5) finish();
 	}
 	function frame(now) {
 		rafId = 0;
@@ -233,11 +379,10 @@ function createDshcpSmoothEngine(root, options) {
 		lastScrollTop = port.scrollTop;
 		if (atBottom && !detachedByUser) {
 			following = true;
-			if (pending.size === 0) position = port.scrollTop;
 			return;
 		}
 		// 离开底部、拖动或用户手动上滚：停止跟随，直到真正回到底部。
-		if (!atBottom || movedUp || pointerDown || Math.abs(port.scrollTop - position) > 1) {
+		if (!atBottom || movedUp || pointerDown) {
 			following = false;
 			if (!atBottom || movedUp) detachedByUser = true;
 		}
@@ -270,11 +415,21 @@ function createDshcpSmoothEngine(root, options) {
 		// 同一批里同一 Text 可能有多条记录（自身截断写入与宿主写入交错）。
 		// 先按节点聚合，只以该批结束时的宿主真实值为准，避免中间值覆盖缓冲。
 		var touched = new Map();
+		var added = [];
+		var rewritten = new Set();
 		for (var mutation of mutations) {
 			if (mutation.type === 'characterData') {
 				var node = mutation.target;
 				var current = node.nodeValue;
 				var owned = ownWrite(node, mutation.oldValue, current);
+				var previous = records.get(node);
+				// React 成形内联元素时会复用第一个 Text 并把它改短，后半段搬到新节点。
+				// 先把这里丢掉的已显示文字记进退役池，新节点才不会把后半段重播一遍。
+				if (!owned && previous !== undefined && !rewritten.has(node)
+					&& dshcpSmoothPrefix(previous.chars, dshcpSmoothChars(current)) < previous.shown) {
+					rewritten.add(node);
+					remember(previous);
+				}
 				var state = touched.get(node);
 				if (state === undefined) {
 					state = { hostTouched: !owned, value: owned ? null : current };
@@ -287,15 +442,14 @@ function createDshcpSmoothEngine(root, options) {
 				continue;
 			}
 			for (var removed of mutation.removedNodes) forget(removed);
-			for (var added of mutation.addedNodes) {
-				// 结算时宿主可能换成完整 Markdown 树；不把旧正文重新播放一遍。
-				visit(added, running);
-			}
+			for (var grown of mutation.addedNodes) added.push(grown);
 		}
+		// 先让被移除的节点把已显示进度放进退役池，再登记新节点；
+		// 宿主换成新的 Markdown 节点时不把旧正文重新播放一遍。
+		for (var addedNode of added) visit(addedNode, running);
 		touched.forEach(function (state, node) {
 			if (state.hostTouched) enqueue(node, state.value);
 		});
-		keepPosition();
 		if (pending.size > 0) schedule();
 		else maybeFinish();
 	}
@@ -305,11 +459,10 @@ function createDshcpSmoothEngine(root, options) {
 		running = isRunning;
 		debt = 0;
 		lastFrame = null;
-		var initialReveal = isRunning && !activated && root.textContent.length <= DSHCP_SMOOTH_INITIAL_CHARS;
-		activated = true;
-		visit(root, initialReveal);
+		// 进入会话时才挂载的运行中回复已经写好了一段：这是用户眼前的既有内容，
+		// 不是刚到达的新分块。从整段已显示开始，只有之后真正到达的文字才揭示。
+		visit(root, false);
 		attachPort();
-		keepPosition();
 		observer = new MutationObserver(onMutations);
 		observer.observe(root, { childList: true, characterData: true, characterDataOldValue: true, subtree: true });
 		if (typeof ResizeObserver === 'function') {
@@ -328,6 +481,7 @@ function createDshcpSmoothEngine(root, options) {
 		observer = null;
 		resize = null;
 		detachPort();
+		// 保持标记一律在这里撤下：缓冲区的生命周期结束，格式必须和完整文字一起可见。
 		if (restore) {
 			records.forEach(function (record, node) {
 				var controlled = record.chars.slice(0, record.shown).join('');
@@ -338,11 +492,16 @@ function createDshcpSmoothEngine(root, options) {
 				}
 			});
 		}
+		releaseAll();
 		pending.clear();
+		retired.length = 0;
 		active = false;
 		running = false;
 		debt = 0;
 		velocity = 0;
+		following = false;
+		detachedByUser = false;
+		pointerDown = false;
 	}
 	return {
 		setState: function (enabled, isRunning) {

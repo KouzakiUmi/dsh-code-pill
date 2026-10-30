@@ -1,6 +1,6 @@
 # 开发与验证
 
-本文描述 **0.6.0** 的源码与交付流程，npm `0.2.0` 不包含这些新增功能；实际发布状态以 registry 和 GitHub Release 为准。包版本字段见 [package.json](../package.json)；产品约定见 [DESIGN.md](../DESIGN.md)，验证边界见 [兼容性说明](compatibility.md)。
+本文描述当前工作区 **0.8.2** 的源码与交付流程；实际发布状态以 registry 和 GitHub Release 为准。包版本字段见 [package.json](../package.json)；产品约定见 [DESIGN.md](../DESIGN.md)，验证边界见 [兼容性说明](compatibility.md)。
 
 ## 环境与完整自检
 
@@ -41,12 +41,12 @@ node scripts/prepare-release.mjs
 | [client-smoke.test.mjs](../tests/client-smoke.test.mjs) | 模块工厂、body 未就绪降级、样式注入和清理 |
 | [browser-render.test.mjs](../tests/browser-render.test.mjs) | 真实浏览器颜色、Highlight ranges、徽章、主题切换、卸载 |
 | [dynamic-render.test.mjs](../tests/dynamic-render.test.mjs) | 流式节点变化、Range 身份、区域迁移、设置更新和降级 |
-| [settings-browser.test.mjs](../tests/settings-browser.test.mjs) | 真实 React 的草稿隔离、保存/失败、持久化恢复、导入、全部行颜色、嵌套滚动区域的顶部吸附与无自动回滚保存、窄屏、清理；宿主控件是结构替身 |
+| [settings-browser.test.mjs](../tests/settings-browser.test.mjs) | 真实 React 的草稿隔离、保存/失败、预设保留行为开关、灰阶／着色预览、高级区折叠、持久化恢复、导入、全部行颜色、嵌套滚动区域的顶部吸附与无自动回滚保存、窄屏、清理；宿主控件是结构替身 |
 | [tool-path.test.mjs](../tests/tool-path.test.mjs) | 复刻宿主结构的路径适配、跨容器移动、属性资格变化、差量写入和交互保持；不是宿主整页验收 |
 | [think-ink.test.mjs](../tests/think-ink.test.mjs) | 新词固定色相与淡出：像素采样、16词预算、176字符分词窗口、半词追加、多节点突发、无动画RAF、分词降级、历史/结算不重播、减少动态效果、开关与卸载定时器清理；不是宿主整页验收 |
 | [row-tint.test.mjs](../tests/row-tint.test.mjs) | 折叠动作行着色：12 类全部映射工具、未知工具兜底、技能／Cordis 独立头部、context 提示位置边界、嵌套行、类别／状态动态切换、双主题、完成状态词、开关与卸载；开启前后宿主 DOM 逐字节一致；不是宿主整页验收 |
 | [sentence-fallback.test.mjs](../tests/sentence-fallback.test.mjs) | 句子级降级：成对反引号并进正文的整句恢复正文色/字体、无徽章与 token 高亮、保留胶囊底色；正常行内代码不受影响；同一节点文本在文件名与融合句间切换、设置实时开关（无需刷新）、开关关闭与卸载清理；不是宿主整页验收 |
-| [display-smooth.test.mjs](../tests/display-smooth.test.mjs) | 真实 React/Chromium 的回复分块揭示、逐帧字符增长、8px 滚动上限、结束排空、手动滚动、默认关闭、开关与卸载恢复、减少动态效果；宿主条目和滚动端口为结构替身 |
+| [display-smooth.test.mjs](../tests/display-smooth.test.mjs) | 真实 React/Chromium 的回复分块揭示、逐帧字符增长、8px 滚动上限、结束排空、手动滚动、默认关闭、开关与卸载恢复、减少动态效果，滚动所有权（宿主跟随时插件零滚动写入，宿主让出时由插件受 8px 约束补位），块级结构不先于文字出现，进入会话不重播既有正文，以及宿主重排节点结构时不重播已显示文字、同批新内容仍逐帧揭示、未揭示完的重排保持进度；宿主条目和滚动端口为结构替身 |
 | [color-audit.mjs](../scripts/color-audit.mjs) | 所有预设深浅主题的页面/合成胶囊/徽章对比度、角色明度差、绿色盲模拟混淆对 |
 
 浏览器测试使用 `playwright-core` 驱动已安装的 Chrome，默认 `BROWSER_CHANNEL=chrome`；可设置 `BROWSER_CHANNEL=msedge` 使用已安装的 Edge。这不代表 Edge 已进入实际验证矩阵。预览图写入 `dist/`，包括行内代码与设置页深浅布局；它们是测试夹具截图，不是生产 DSH 全页截图。

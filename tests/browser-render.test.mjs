@@ -58,7 +58,7 @@ try {
   assert.equal(lightVars.num, '#0a7a52')
   assert.equal(lightVars.kwd, '#0451a5')
   assert.equal(lightVars.str, '#8a1e1e')
-  assert.equal(lightVars.com, '#64707a')
+  assert.equal(lightVars.com, '#5d6973')
   assert.equal(lightVars.pillColor, 'rgb(145, 98, 0)')
 
   await page.evaluate(() => document.body.setAttribute('data-ds-dark-theme', ''))
