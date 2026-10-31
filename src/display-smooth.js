@@ -3,7 +3,10 @@
  * 字符按帧揭示，承载未揭示文字的块级结构随文字一起出现；历史消息与非运行态不排队。
  * 滚动只补齐宿主没有覆盖的帧间增长，不夺回宿主或用户已经确定的视口位置。
  */
-var DSHCP_SMOOTH_SKIP = '[aria-hidden="true"], [aria-live], [contenteditable="true"], script, style, textarea, input';
+// 思考区由 think-ink 负责刷入节奏：它用 StaticRange 引用原文偏移量着色，
+// 平滑再截断同一 Text 会让区间越界、文字成片消失。两者不能同时接管同一节点。
+var DSHCP_SMOOTH_SKIP = '[aria-hidden="true"], [aria-live], [contenteditable="true"], '
+	+ '[data-variant="think"], [data-markdown-variant="compact"], [data-streaming], script, style, textarea, input';
 var DSHCP_SMOOTH_MAX_FRAME_MS = 32;
 var DSHCP_SMOOTH_MAX_MOVE_PX = 8;
 // 超过这个距离的底部变化不是逐字增长，而是宿主或阅读器一次性移动；跟随直接落位，不拖尾。
@@ -165,22 +168,38 @@ function createDshcpSmoothEngine(root, options) {
 		var block = parent.closest(DSHCP_SMOOTH_BLOCKS);
 		return block !== null && block !== root && root.contains(block) ? block : null;
 	}
-	/** 块内是否已有任何非空白文字（包括本引擎已揭示的部分）。 */
-	function hasVisibleText(block) {
-		return block.textContent.trim() !== '';
+	function applyHold(block, wanted) {
+		if (wanted) {
+			if (held.has(block)) return;
+			held.add(block);
+			block.setAttribute(DSHCP_SMOOTH_HOLD_ATTR, '');
+			return;
+		}
+		if (!held.has(block)) return;
+		held.delete(block);
+		block.removeAttribute(DSHCP_SMOOTH_HOLD_ATTR);
 	}
 	function hold(node) {
 		var block = blockOf(node);
-		if (block === null || held.has(block) || hasVisibleText(block)) return;
-		// 宿主 DOM 与 React 都不认识这个属性；只在块内文字出现前短暂存在。
-		held.add(block);
-		block.setAttribute(DSHCP_SMOOTH_HOLD_ATTR, '');
+		if (block !== null) applyHold(block, true);
 	}
 	function release(node) {
 		var block = blockOf(node);
-		if (block === null || !held.has(block)) return;
-		held.delete(block);
-		block.removeAttribute(DSHCP_SMOOTH_HOLD_ATTR);
+		if (block !== null) applyHold(block, false);
+	}
+	/**
+	 * 撤下所有已经写出文字的块的保持。
+	 * 揭示按队列顺序消费预算，长思考区会持续占满预算，排在后面的块可能很多帧都轮不到；
+	 * 若只在「轮到该节点」时释放，这些块会长期停在不可见状态，表现为只剩零散结构。
+	 * 因此每帧按块内是否已有可见文字统一核对，与揭示顺序解耦。
+	 */
+	function refreshHolds() {
+		if (held.size === 0) return;
+		held.forEach(function (block) {
+			if (!block.isConnected || !root.contains(block) || block.textContent.trim() !== '') {
+				applyHold(block, false);
+			}
+		});
 	}
 	function releaseAll() {
 		held.forEach(function (block) {
@@ -277,9 +296,9 @@ function createDshcpSmoothEngine(root, options) {
 			write(node, record.chars.slice(0, record.shown).join(''));
 			amount -= take;
 			if (record.shown >= record.chars.length) pending.delete(node);
-			// 首个字符落地即撤下块级保持：格式与它的第一个字同帧出现。
-			if (record.shown > 0) release(node);
 		}
+		// 已写出文字的块立刻恢复可见，不等它在本帧排到队首。
+		refreshHolds();
 	}
 	function distanceToBottom() {
 		return port === null ? 0 : port.scrollHeight - port.scrollTop - port.clientHeight;

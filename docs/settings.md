@@ -2,7 +2,7 @@
 
 [返回首页](../README.md) · [兼容性与权限](compatibility.md)
 
-> 本文对应当前工作区 0.8.2 实现；实际发布状态以 npm 与 GitHub Release 为准，不将 main 推送等同于发布。变更见 [更新记录](../CHANGELOG.md)。
+> 本文对应当前工作区 0.8.3 实现；实际发布状态以 npm 与 GitHub Release 为准，不将 main 推送等同于发布。变更见 [更新记录](../CHANGELOG.md)。
 
 ## 打开设置
 

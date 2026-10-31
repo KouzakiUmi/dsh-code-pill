@@ -53,12 +53,16 @@ async function fixture(enabled, reducedMotion = 'no-preference') {
       }, [text])
       // 真实宿主把跟随意图写在会话最近的公共根上（ChatView 的 root），
       // 这里是消息的父级外侧：用一个由 React 渲染、包裹消息的容器承载该标记。
-      const codes = props.node.data.blocks.filter(block => block.kind === 'code')
-      const body = codes.length === 0
-        ? text
-        : props.node.data.blocks.map((block, index) => block.kind === 'code'
+      const rich = props.node.data.blocks.some(block => block.kind === 'code' || block.kind === 'think')
+      const body = rich
+        ? props.node.data.blocks.map((block, index) => block.kind === 'code'
           ? h('pre', { key: index, className: 'probe-code' }, block.text)
-          : h('div', { key: index }, block.text))
+          // 思考区用宿主语义属性标记：它由 think-ink 负责刷入，平滑不得截断同一节点。
+          : block.kind === 'think'
+            ? h('div', { key: index, className: 'probe-think', 'data-variant': 'think', 'data-state': props.node.data.status },
+              h('div', { 'data-markdown-variant': 'compact', 'data-streaming': '' }, block.text))
+            : h('div', { key: index }, block.text))
+        : text
       return h('div',
         { 'data-chat-following-tail': window.hostFollow ? '' : undefined, id: 'follow-root' },
         h('div', { id: 'message', 'data-state': props.node.data.status }, body))
@@ -94,6 +98,11 @@ async function fixture(enabled, reducedMotion = 'no-preference') {
     window.currentNode = null
     window.renderNode = (status, text) => {
       window.currentNode = { data: { status, blocks: [{ kind: 'text', text }] } }
+      ReactDOM.flushSync(() => root.render(h(entry.component, { node: window.currentNode })))
+    }
+    // 多块渲染：思考区、代码块与正文共存时按 blocks 直接提交。
+    window.renderBlocks = (status, blocks) => {
+      window.currentNode = { data: { status, blocks } }
       ReactDOM.flushSync(() => root.render(h(entry.component, { node: window.currentNode })))
     }
     window.appendText = text => {
@@ -398,6 +407,33 @@ try {
     }), entering)
     assert.ok(enteringFrames.every(length => length === entering.length),
       `进入会话时不重播既有正文，实际 ${JSON.stringify(enteringFrames)}`)
+
+    // 思考区与代码块并存：思考区由 think-ink 刷入，平滑不得截断它，
+    // 否则 StaticRange 偏移量越界，文字成片消失只剩标点。
+    const thinkFull = '检查压缩路径的竞态条件，确认句柄获取后路径是否仍然有效，并核对重命名分支与打开时序。'
+    const thinkTrace = await page.evaluate(async text => {
+      const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+      const seen = []
+      for (let i = 0; i <= text.length; i += 6) {
+        window.renderBlocks('running', [
+          { kind: 'think', text: text.slice(0, i) },
+          { kind: 'code', text: i >= 24 ? 'DATA_EXTEND and FILE_CREATE and NAMED_DATA_EXTEND' : '' },
+        ])
+        await sleep(30)
+        const think = document.querySelector('.probe-think [data-streaming]')
+        seen.push({ fed: i, shown: think === null ? -1 : think.textContent.length })
+      }
+      return seen
+    }, thinkFull)
+    assert.ok(thinkTrace.every(step => step.shown === step.fed),
+      `思考区不得被平滑截断，实际 ${JSON.stringify(thinkTrace.filter(step => step.shown !== step.fed).slice(0, 3))}`)
+    // 回到单块基线：后续用例按 blocks[0].text 取正文。
+    await page.evaluate(history => window.renderNode('running', history), HISTORY)
+    await page.waitForTimeout(200)
+    await page.evaluate(() => {
+      const port = document.getElementById('port')
+      port.scrollTop = port.scrollHeight
+    })
 
     // 块级结构（代码块、引用等）不得先于其中的文字出现。
     // 夹具宿主只渲染一段文本，这里换成能同时渲染代码块外观的包装组件。

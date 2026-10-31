@@ -1,6 +1,6 @@
 # 兼容性与权限边界
 
-本文针对 **0.8.2** 的代码。六套预设、自定义色板、双 Tab 设置页、图标、字体与持久化能力自 `0.3.0` 起提供，字体能力分类与搜索自 `0.4.0` 起提供；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
+本文针对 **0.8.3** 的代码。六套预设、自定义色板、双 Tab 设置页、图标、字体与持久化能力自 `0.3.0` 起提供，字体能力分类与搜索自 `0.4.0` 起提供；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
 
 ## 已知证据，不扩大结论
 

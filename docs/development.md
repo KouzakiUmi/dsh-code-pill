@@ -1,6 +1,6 @@
 # 开发与验证
 
-本文描述当前工作区 **0.8.2** 的源码与交付流程；实际发布状态以 registry 和 GitHub Release 为准。包版本字段见 [package.json](../package.json)；产品约定见 [DESIGN.md](../DESIGN.md)，验证边界见 [兼容性说明](compatibility.md)。
+本文描述当前工作区 **0.8.3** 的源码与交付流程；实际发布状态以 registry 和 GitHub Release 为准。包版本字段见 [package.json](../package.json)；产品约定见 [DESIGN.md](../DESIGN.md)，验证边界见 [兼容性说明](compatibility.md)。
 
 ## 环境与完整自检
 
