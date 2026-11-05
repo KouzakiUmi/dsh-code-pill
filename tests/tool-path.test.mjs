@@ -193,6 +193,7 @@ try {
     flow.id = 'flow'; flow.setAttribute('data-chat-flow', '')
     flow.innerHTML = `
       <div data-read><div data-code-block-banner><span class="abc_title" title="C:/Software Projects/output.custom">C:/Software Projects/output.custom</span></div><div class="abc_content">const x = 1</div></div>
+      <div id="row-fetched" data-variant="read" data-tool="web_fetch" data-state="ok"><div data-disclosure-header><div data-disclosure-row><span class="x_shimmer"><span class="x_content"><span class="x_summary">docs</span></span></span></div><div data-code-block-banner><span class="abc_title" title="/tmp/fetched.output.custom">fetched.output.custom</span></div></div></div>
       <div data-search="paths"><div class="abc_line">/tmp/output.custom</div></div>
       <div data-search="matches"><button aria-expanded="true"><span class="abc_filePath">src/other.ts</span><span class="abc_fileCount">2</span></button><div class="abc_line"><span>24: </span>src/not-a-path.ts</div></div>
       <span data-path-label title="/tmp/a long directory/output.custom"><span><span style="color:rgb(100,100,100)">/tmp/a long directory/</span><span style="color:rgb(255,255,255)">output.custom</span></span></span>
@@ -211,12 +212,13 @@ try {
     flow.querySelector('p button').onclick = () => window.referenceClicks++
   })
   await settle()
-  assert.equal(await page.locator('#flow .dshcp-tool-path').count(), 6)
+  assert.equal(await page.locator('#flow .dshcp-tool-path').count(), 7)
   assert.equal(await page.locator('#outside.dshcp-pill').count(), 0)
   assert.equal(await page.locator('#image-alias.dshcp-pill, #image-alias[data-dshcp-badge], #image-alias[data-dshcp-path]').count(), 0, '图片预览缺少可信路径时不把链接别名误当文件')
   assert.deepEqual(await page.locator('#flow [data-path-label] span[style]').evaluateAll(els => els.map(el => getComputedStyle(el).color)), ['rgb(226, 191, 112)', 'rgb(226, 191, 112)'], 'PathLabel 子节点显式颜色统一为路径色')
   assert.equal(await page.locator('#flow [data-dshcp-preview] .dshcp-tool-path, #flow [data-ref-chip].dshcp-tool-path, #flow [data-message-attachments] .dshcp-tool-path').count(), 0)
   assert.equal(await page.locator('#flow [data-read] [data-dshcp-badge]').count(), 0, '读取标题不重复语言栏')
+  assert.equal(await page.locator('#row-fetched [data-code-block-banner] .abc_title').evaluate(el => el.classList.contains('dshcp-tool-path') && el.dataset.dshcpPath), '/tmp/fetched.output.custom', '0.2.2rc1 read 变体行根内的横幅标题按读取标题适配')
   assert.equal(await page.locator('#flow .abc_fileCount.dshcp-pill, #flow [data-search="matches"] .abc_line.dshcp-pill').count(), 0)
   assert.equal(await page.locator('#flow code.dshcp-pill').count(), 0, '引用不重复内外胶囊')
   await page.locator('#flow p button').first().click()
@@ -229,7 +231,7 @@ try {
   assert.equal(await page.locator('#flow .dshcp-tool-path').count(), 0)
   await page.evaluate(() => window.setConfig({ toolPath: true }))
   await settle()
-  assert.equal(await page.locator('#flow .dshcp-tool-path').count(), 6)
+  assert.equal(await page.locator('#flow .dshcp-tool-path').count(), 7)
   assert.equal(await page.locator('#flow p button').first().evaluate(el => el.firstChild === window.referenceNode && el.childNodes.length), referenceNode)
 
   // 交叉归属、嵌套流、宿主 class 重写、排除属性变化与差量写入。

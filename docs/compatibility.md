@@ -1,6 +1,6 @@
 # 兼容性与权限边界
 
-本文针对 **0.8.3** 的代码。六套预设、自定义色板、双 Tab 设置页、图标、字体与持久化能力自 `0.3.0` 起提供，字体能力分类与搜索自 `0.4.0` 起提供；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
+本文针对 **0.8.4** 的代码。六套预设、自定义色板、双 Tab 设置页、图标、字体与持久化能力自 `0.3.0` 起提供，字体能力分类与搜索自 `0.4.0` 起提供；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
 
 ## 已知证据，不扩大结论
 
@@ -20,6 +20,8 @@
 Font Lab 合并版本的浏览器内行为已由隔离 Chrome + React 测试覆盖；字体族读取授权、生产终端与 CSS zoom 弹窗仍缺现场验收证据，不能据此宣称已在所有宿主或其余 Profile 部署。
 
 聊天路径适配（0.5.0）基于本地宿主源码结构，已在隔离 Chrome 中验证路径、点击保持、动态归属、配置与卸载；未进行真实宿主整页验收。少量 CSS-module 局部名回退仍需随宿主升级回归。
+
+0.8.4 已按本机 Core `0.2.2-rc.1` 安装树逐项核对：工具行 ToolRow 根、`TOOL_VARIANTS`（含 read/write/edit）、`fileLink`/`summary` 局部名、`settings.section` slots、`conversation.chat.node` 的 `assistant-step` 条目、滚动端口与跟随意图标记、`data-chat-flow-kind="context"`（动态路由值，仍输出）、bash 行 `data-sample` 与 `--dsw-alias-*` 令牌均保留；读取标题归属行扩展为同时接受 `data-variant="read"`。两项不可本地核对：宿主 primitives 包实体不随 npm 分发，MarkdownText 的 `fileMention` 局部名与 `data-ref-chip` 的现行替代标记只能现场回归；DisclosureRow 头/行 DOM 是否随 0.2.2-rc.1 的新 props（rowClassName 等）变化同样未验证。宿主 Cordis 依赖为 4.1.0，本机实际入口的加载与卸载检查通过。
 
 当前动作行分类适配依据本次核对的宿主标准 DisclosureRow、技能／Cordis 独立头部及聊天 context 标记；隔离测试覆盖全部已映射工具、未知工具兜底与双主题。这不代表任意第三方插件自建卡片也自动兼容；没有这些语义标记和头部结构时不猜测正文。新增分类和顶部保存栏的本地构建未据此扩大 Core 兼容声明，也不意味着已经安装到正在运行的实例。
 

@@ -46,7 +46,7 @@ fn/typ/cst/prm 并入 plain：行内表达式不是完整编辑器，不必把�
 | 工具摘要 | `data-tool` + `data-variant`，只处理 read/write/edit 变体行头里的 fileLink/summary |
 | 正文文件引用 | 聊天流内宿主 fileMention 按钮，排除技能引用、附件与工具卡片 |
 | 搜索路径 | `data-search=paths` 的路径行及 `data-search=matches` 的文件名；不处理匹配内容和行号 |
-| 读取标题 | `data-read` 内代码栏的 title；不重复已有语言标签 |
+| 读取标题 | 代码栏横幅的 title，宿主读取行以 `data-read` 或行根 `data-variant="read"` 承载（0.2.2-rc.1 起为后者）；不重复已有语言标签 |
 | 路径标签 | 聊天流内 `data-path-label`，从完整 title 取路径，保留宿主截断结构 |
 
 除工具摘要外必须处于 `data-chat-flow` 内，预览、可编辑区域、附件和 pre 排除。没有语义标记的部分采用已核实的 CSS-module 局部名后缀回退；不依赖哈希前缀，但宿主改局部名仍可能漏染，需要版本回归。未知结构不扫描全文猜测。图片预览引用若缺少可信路径 title，保留宿主外观，不根据任意链接别名推断路径或徽章。

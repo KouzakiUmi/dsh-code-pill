@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.4
+
+- 适配：按 Core `0.2.2-rc.1` 宿主源码核对聊天路径适配。读取标题（代码栏横幅）的归属行从独立的 `data-read` 标记扩展为同时接受行根 `data-variant="read"`（0.2.2-rc.1 的 `TOOL_VARIANTS` 将 read/read_image/web_fetch/cordis_package_inspect 统一归入 `read` 变体）；旧标记继续接受，两种宿主形态并存。
+- 核对：工具行结构在 0.2.2-rc.1 未变——ToolRow 根仍为 `data-tool`/`data-variant`/`data-state`，变体表仍含 read/write/edit，摘要按钮与链接仍为 `fileLink` 局部名，DisclosureRow 由宿主 primitives 输出；`settings.section`、`conversation.chat.node`（`assistant-step`）、`data-conversation-scroll`、`data-chat-following-tail`、`data-chat-flow-kind="context"`（动态路由值）、bash 行 `data-sample` 与 `--dsw-alias-*` 令牌均保留。宿主 Cordis 依赖从 4.0.5 升至 4.1.0，本机实际 Cordis 入口的加载与卸载检查通过。
+- 边界：`data-ref-chip` 与 MarkdownText 的 `fileMention` 局部名在 0.2.2-rc.1 安装树中不可核对（primitives 实体不随 npm 包分发）；引用 chip 的防御排除保留原样，引用识别仍需真实宿主现场回归，未据此扩大兼容声明。
+
 ## 0.8.3
 
 - 修复：同时开启「显示平滑」与「思考彩虹刷入」时，思考区文字会被平滑截断，而彩虹着色用原文偏移量定位，区间越界后大片文字消失、只剩零散彩色标点；思考区还会停在某个长度不再增长，下面的代码块却已完整渲染。现在平滑跳过思考区（`data-variant="think"`、`data-markdown-variant="compact"`、`data-streaming`），思考节奏只由彩虹刷入负责。
