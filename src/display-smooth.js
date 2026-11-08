@@ -310,7 +310,11 @@ function createDshcpSmoothEngine(root, options) {
 	 * 宿主据此跟随已经足够平滑；此时插件再写 scrollTop 只会和宿主互相打断。
 	 */
 	function hostFollowsTail() {
-		return port !== null && port.querySelector('[data-chat-following-tail]') !== null;
+		if (port === null) return false;
+		// 跟随意图写在会话根上：消息树都在其内部，先走祖先链快路径，
+		// 只有标记落在本回复之外时才需要端口级的子树扫描。
+		return root.closest('[data-chat-following-tail]') !== null
+			|| port.querySelector('[data-chat-following-tail]') !== null;
 	}
 	/**
 	 * 底部跟随：只补宿主没有负责的那部分增长。

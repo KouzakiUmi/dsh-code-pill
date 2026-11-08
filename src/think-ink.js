@@ -193,6 +193,8 @@ function createThinkInk(root, getConfig) {
 	}
 	function queueText(node) {
 		if (highlights === null || !node || node.nodeType !== 3 || node.parentElement === null) return;
+		// 尚无活跃思考区时不做祖先链检查：每条正文变更都要付一次复杂选择器的 closest。
+		if (scopes.size === 0 && pendingScopes.size === 0) return;
 		// 工作区列表等无关文本不进入动画队列。
 		if (node.parentElement.closest(SCOPE) !== null) pendingNodes.add(node);
 	}

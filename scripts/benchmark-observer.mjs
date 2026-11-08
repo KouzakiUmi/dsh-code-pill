@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs'
 import { chromium } from 'playwright-core'
 
-const bundle = readFileSync(new URL('./lib/client.js', import.meta.url), 'utf8')
+const bundle = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8')
 
 const ROW = (variant, tool, summary) => `
 <div class="row" data-variant="${variant}" data-tool="${tool}" data-state="ok">

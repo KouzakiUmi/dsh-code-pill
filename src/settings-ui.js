@@ -115,11 +115,31 @@ function installSettings(ctx, store, fontStore) {
         h('div', { className: 'dshcp-preview-rows-caption' }, cfg.rowTint ? '动作行预览 · 着色开启' : '动作行预览 · 当前关闭，显示宿主灰阶'),
         rowSamples(cfg.rowColors[theme], isDark ? '#8a8f98' : '#7b8190', cfg.rowTint)));
   }
+  /** 系统深浅主题：跟随 prefers-color-scheme，变化时实时通知。 */
+  function useSystemTheme() {
+    return React.useSyncExternalStore(
+      function (notify) {
+        if (typeof matchMedia !== 'function') return function () {};
+        var mq = matchMedia('(prefers-color-scheme: dark)');
+        if (typeof mq.addEventListener === 'function') mq.addEventListener('change', notify);
+        else if (typeof mq.addListener === 'function') mq.addListener(notify);
+        return function () {
+          if (typeof mq.removeEventListener === 'function') mq.removeEventListener('change', notify);
+          else if (typeof mq.removeListener === 'function') mq.removeListener(notify);
+        };
+      },
+      function () {
+        return typeof matchMedia === 'function' && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+      });
+  }
   function CodeAppearance() {
     var saved = React.useSyncExternalStore(store.subscribe, store.getSnapshot);
     var draftState = React.useState(function () { return CP_SETTINGS.normalize(saved); });
     var draft = draftState[0], setDraft = draftState[1];
-    var themeState = React.useState('light'), theme = themeState[0], setTheme = themeState[1];
+    // 编辑/预览主题：默认跟随系统，手动选浅色或深色后固定；下次打开回到跟随。
+    var systemTheme = useSystemTheme();
+    var modeState = React.useState('system'), themeMode = modeState[0], setThemeMode = modeState[1];
+    var theme = themeMode === 'system' ? systemTheme : themeMode;
     var statusState = React.useState(store.getError()), status = statusState[0], setStatus = statusState[1];
     var transferState = React.useState(''), transfer = transferState[0], setTransfer = transferState[1];
     var dirty = CP_SETTINGS.stringify(draft) !== CP_SETTINGS.stringify(saved);
@@ -135,8 +155,9 @@ function installSettings(ctx, store, fontStore) {
     function button(label, onClick, primary, disabled, extra) { return h(ui.Button, Object.assign({ type: 'button', size: 'sm', variant: primary ? 'primary' : 'outline', onClick: onClick, disabled: !!disabled }, extra || {}), label); }
     function themeToggle() {
       return h('div', { className: 'dshcp-theme-toggle', role: 'group', 'aria-label': '编辑与预览主题' },
-        button('浅色', function () { setTheme('light'); }, theme === 'light', false, { 'aria-pressed': theme === 'light' }),
-        button('深色', function () { setTheme('dark'); }, theme === 'dark', false, { 'aria-pressed': theme === 'dark' }));
+        button('跟随系统', function () { setThemeMode('system'); }, themeMode === 'system', false, { 'aria-pressed': themeMode === 'system' }),
+        button('浅色', function () { setThemeMode('light'); }, themeMode === 'light', false, { 'aria-pressed': themeMode === 'light' }),
+        button('深色', function () { setThemeMode('dark'); }, themeMode === 'dark', false, { 'aria-pressed': themeMode === 'dark' }));
     }
     function range(label, key, min, max, step, suffix) {
       return h('label', { className: 'dshcp-slider', key: key }, h('span', null, label, h('output', null, String(Math.round(draft[key] * 100) / 100), suffix)),

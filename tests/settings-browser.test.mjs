@@ -112,6 +112,21 @@ try {
   await page.getByLabel('代码块颜色', { exact: true }).selectOption('host')
   await page.getByRole('button', { name: '保存并应用', exact: true }).click()
   await page.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue('--shiki-token-keyword').trim() === '')
+  // 预览主题默认跟随系统：深色系统下预览直接进深色，跟随按钮选中；
+  // 手动选浅色后固定，切回跟随系统恢复实时跟随。
+  const previewTheme = () => page.locator('.dshcp-preview').getAttribute('data-preview-theme')
+  const followButton = page.getByRole('button', { name: '跟随系统', exact: true })
+  assert.equal(await followButton.getAttribute('aria-pressed'), 'true', 'theme selector defaults to follow system')
+  assert.equal(await previewTheme(), 'light')
+  await page.emulateMedia({ colorScheme: 'dark' })
+  await page.waitForFunction(() => document.querySelector('.dshcp-preview')?.dataset.previewTheme === 'dark')
+  await page.getByRole('button', { name: '浅色', exact: true }).click()
+  assert.equal(await previewTheme(), 'light', 'manual selection pins the preview theme')
+  await page.getByRole('button', { name: '跟随系统', exact: true }).click()
+  await page.waitForFunction(() => document.querySelector('.dshcp-preview')?.dataset.previewTheme === 'dark')
+  await page.emulateMedia({ colorScheme: 'light' })
+  await page.waitForFunction(() => document.querySelector('.dshcp-preview')?.dataset.previewTheme === 'light')
+  assert.equal(await previewTheme(), 'light', 'follow-system tracks live system changes')
   // Full, validated JSON import and parse error feedback.
   await page.getByText('导入／导出配置', { exact: true }).click()
   await page.getByRole('button', { name: '导出草稿', exact: true }).click()

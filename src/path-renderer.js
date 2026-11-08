@@ -172,8 +172,8 @@ function createPathRenderer(root, getConfig) {
 	/** 相关性探针：子树扫描只对含候选形状或语义容器的子树有意义；已装饰元素自带类名可循。 */
 	var PROBE = 'button, a, [title], [data-path-label], [data-search], [data-disclosure-row], [data-tool], [data-chat-flow], [data-chat-flow-kind], .dshcp-tool-path';
 	/** 文本变化影响祖先的 textContent；候选必须处于归属内，而元素不在归属内时其祖先也必然不在，攀爬到归属即止。 */
-	function climb(el) {
-		var stop = el.closest(CHAT_OWNER) || el.closest(TOOL_ROW);
+	function climb(el, stop) {
+		if (stop === undefined) stop = el.closest(CHAT_OWNER) || el.closest(TOOL_ROW);
 		if (stop === null || stop === el) return;
 		for (var p = el.parentElement; p !== null && p !== root; p = p.parentElement) {
 			if (shaped(p)) pendingSelf.add(p);
@@ -184,10 +184,12 @@ function createPathRenderer(root, getConfig) {
 		if (el === null || el === undefined || el.nodeType !== 1 || getConfig().toolPath === false) return;
 		// 已脱离文档的元素只剩摘除一种结果，不做相关性过滤。
 		if (!el.isConnected) { pendingSelf.add(el); return; }
-		// 无候选形状、且不在任何归属内的元素（如侧栏普通行）与路径管线无关。
-		if (!shaped(el) || (el.closest(CHAT_OWNER) === null && el.closest(TOOL_ROW) === null)) { climb(el); return; }
-		pendingSelf.add(el);
-		climb(el);
+		// 归属判定先算一次：归属外的元素（侧栏、面板等）与路径管线无关，
+		// 直接返回，不再为 climb 重复爬两遍祖先链。
+		var stop = el.closest(CHAT_OWNER) || el.closest(TOOL_ROW);
+		if (stop === null) return;
+		if (shaped(el)) pendingSelf.add(el);
+		climb(el, stop);
 	}
 	function queueText(node) {
 		if (node === null || node === undefined || node.nodeType !== 3) return;
