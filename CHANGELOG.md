@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.8.6
+
+- 性能：聊天文件路径的子树对账不再遍历全会话装饰表。同批嵌套的子树 scope 合并为最外层，候选收集由五遍选择器合并为单遍组合选择器，旧装饰按子树内的装饰类名定位对账；工具行首个 disclosure-row 查询在单次 flush 内缓存，候选判定对无适配器标记的普通元素先走类名/属性快路径。合成重渲染基准（每批替换正文子树 + 周期性新增工具行 ×60 批）中 `contains()` 调用从 43.5k（160 工具行）／105.1k（400 工具行）降到 720（两档相同），path 管线 RAF 耗时 9.6ms／16.1ms → 6.0ms／5.3ms，开销不再随会话长度增长。
+- 性能：显示平滑的追加与揭示改为增量。宿主追加只拆分新增尾部码点并复用已显示前缀，逐帧揭示只拼接新露出的字符，重排判定改用已显示前缀的 `startsWith`，不再为每条 `characterData` 记录拆分整段文本。10.6k 字符回复 ×160 块的合成基准中码点拆分量 1.70M 字符 → 10.7k 字符，引擎 RAF 总耗时 2002ms → 34ms，单帧 RAF 峰值 12.3ms → 3.8ms。
+- 性能：宿主跟随且揭示队列未排空时不再每帧读取 `scrollHeight` 强制整段重排，排空后才核对底部；端口级跟随标记探测改为短暂缓存，本回复子树内的标记与结构变化由观察器即时失效，会话根祖先链快路径不变。滚动所有权、8px 补位上限与让位行为不变。
+- 性能：主观察器同批 `characterData` 按节点去重，同一 Text 的多条记录（宿主与平滑写入交错）只做一次祖先链复核。
+- 兼容：按本机 Core `0.2.2-rc.3`（壳 2.0.23-next，Cordis 4.1.0）安装树源码逐项复核宿主契约：ToolRow 根属性、TOOL_VARIANTS 的 read/write/edit 覆盖、DisclosureRow 三层结构、跟随标记与滚动端口、think 行标记、fileMention/fileLink 局部名、data-ref-chip 与各语义容器均保留；桌面 ASAR 含 primitives 源码，补齐 0.8.4 未能本地核对的两项。清单 `dshReleases` 由 `0.2.1-rc.3` 更新为 `0.2.2-rc.3`。新增宿主变体（pwsh→bash、cordis_runtime_inspect→read、run_code→code）不改变路径与类别判定边界。记录事实：运行态回复根节点带 `data-streaming`，落在显示平滑跳过列表内，揭示队列在该宿主上不接管运行态回复正文（0.8.3 既有语义）。
+- 工具：`scripts/benchmark-observer.mjs` 新增 `STREAM=replace` 重渲染场景与 `contains()` 计数；新增 `scripts/benchmark-display-smooth.mjs` 长回复流式基准（真实 React 包装，度量观察器/RAF 耗时、码点拆分量与 `nodeValue` 写入量）。
+
 ## 0.8.5
 
 - 新增：设置页「编辑与预览主题」增加「跟随系统」选项并设为默认，按 `prefers-color-scheme` 解析且系统切换时实时更新；手动选择浅色／深色后本次会话内固定，下次打开回到跟随系统。

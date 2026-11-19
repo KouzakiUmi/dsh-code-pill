@@ -2,6 +2,9 @@
 // under a realistic long-session chat (tool rows + messages + inline codes + streaming
 // think block + sidebar churn). Run: node scripts/benchmark-observer.mjs
 // Scale the chat with TOOL_GROUPS (default 20) and pick configs with CONFIGS=none,alloff,path,pill,ink,tint,all.
+// STREAM=replace simulates host Markdown re-renders: the live paragraph's child structure is
+// replaced every batch (spans + inline code + a fileMention button) and new tool rows arrive
+// periodically, exercising subtree-scope reconciliation against a growing decoration set.
 import { readFileSync } from 'node:fs'
 import { chromium } from 'playwright-core'
 
@@ -68,10 +71,10 @@ try {
     const errors = []
     page.on('pageerror', e => errors.push(e.message))
     await page.route('https://obs-perf.test/**', route => route.fulfill({ contentType: 'text/html; charset=utf-8', body: html }))
-    await page.goto('https://obs-perf.test/')
+    await page.goto('https://obs-perf.test/' + (process.env.STREAM === 'replace' ? '?stream=replace' : ''))
     await page.evaluate(settings => {
       const nativeRaf = requestAnimationFrame.bind(window), nativeTimeout = setTimeout.bind(window)
-      const stats = { observerCallbacks: 0, observerMs: 0, observerMaxMs: 0, observerRecords: 0, qsa: 0, closest: 0, matches: 0, hlAdds: 0, hlDels: 0, rafCallbacks: 0, rafMs: 0, rafMaxMs: 0, measuring: false }
+      const stats = { observerCallbacks: 0, observerMs: 0, observerMaxMs: 0, observerRecords: 0, qsa: 0, closest: 0, matches: 0, contains: 0, hlAdds: 0, hlDels: 0, rafCallbacks: 0, rafMs: 0, rafMaxMs: 0, measuring: false }
       window.stats = stats; window.nativeRaf = nativeRaf; window.pause = ms => new Promise(r => nativeTimeout(r, ms))
       const NativeObserver = MutationObserver
       window.MutationObserver = class extends NativeObserver {
@@ -87,6 +90,7 @@ try {
       wrap(Element.prototype, 'querySelectorAll', 'qsa')
       wrap(Element.prototype, 'closest', 'closest')
       wrap(Element.prototype, 'matches', 'matches')
+      wrap(Node.prototype, 'contains', 'contains')
       window.requestAnimationFrame = cb => nativeRaf(t => { const s = performance.now(); cb(t); if (stats.measuring) { stats.rafCallbacks++; const ms = performance.now() - s; stats.rafMs += ms; stats.rafMaxMs = Math.max(stats.rafMaxMs, ms) } })
       localStorage.setItem('dsh-code-pill.settings.v1', JSON.stringify({ version: 1, ...settings }))
       const disposers = []
@@ -95,18 +99,30 @@ try {
     }, settings)
     if (settings !== null) await page.addScriptTag({ content: bundle })
     await page.evaluate(() => new Promise(r => nativeRaf(() => nativeRaf(r))))
-    const result = await page.evaluate(async () => {
+    const result = await page.evaluate(async ({ rowSrc, msgSrc }) => {
+      const ROW_TEMPLATE = new Function('return ' + rowSrc)()
+      const MSG_TEMPLATE = new Function('return ' + msgSrc)()
       const chat = document.getElementById('chat'), tail = document.getElementById('tail').firstChild
       const live = document.getElementById('live'), rows = [...document.querySelectorAll('.workspace')]
       const others = [...chat.querySelectorAll('[data-variant="others"]')]
+      const replace = new URLSearchParams(location.search).get('stream') === 'replace'
       chat.scrollTop = chat.scrollHeight; await pause(120)
       stats.measuring = true; let running = true, last = performance.now(); const intervals = []
       function frame(t) { if (!running) return; intervals.push(t - last); last = t; nativeRaf(frame) } nativeRaf(frame)
       const started = performance.now()
       for (let i = 0; i < 60; i++) {
         tail.nodeValue += ' alpha beta gamma delta epsilon zeta theta lambda'
-        live.childNodes[0].nodeValue = `Streaming answer ${i} with more context words flowing in. `
-        live.querySelector('code').textContent = `git commit -m "fix ${i}"`
+        if (replace) {
+          live.innerHTML = `Streaming answer ${i} <span>with <code>git commit -m "fix ${i}"</code></span> see <button type="button" class="fileMention fileLink" title="src/live/ref${i}.ts">ref${i}.ts</button> and more context words flowing in. `
+          if (i % 5 === 4) {
+            const holder = document.createElement('div')
+            holder.innerHTML = ROW_TEMPLATE('edit', 'edit', `src/live/module${i}.ts`) + MSG_TEMPLATE(1000 + i)
+            chat.insertBefore(holder, live)
+          }
+        } else {
+          live.childNodes[0].nodeValue = `Streaming answer ${i} with more context words flowing in. `
+          live.querySelector('code').textContent = `git commit -m "fix ${i}"`
+        }
         if (i % 10 === 9) { const el = others[(i / 10 | 0) % others.length]; el.dataset.state = el.dataset.state === 'ok' ? 'running' : 'ok' }
         for (let j = 0; j < rows.length; j++) { rows[j].className = 'workspace ' + ((i + j) % 2 ? 'odd' : 'even'); rows[j].firstChild.nodeValue = 'Workspace ' + (i + j) }
         chat.scrollTop = chat.scrollHeight
@@ -115,7 +131,7 @@ try {
       await pause(450); running = false; stats.measuring = false
       intervals.sort((a, b) => a - b)
       return { elapsedMs: performance.now() - started, ...stats, frameCount: intervals.length, p95FrameMs: intervals[Math.floor(intervals.length * .95)] || 0, maxFrameMs: intervals.at(-1) || 0 }
-    })
+    }, { rowSrc: ROW.toString(), msgSrc: MSG.toString() })
     if (errors.length) console.error(name, errors)
     results.push({ name, ...result })
     await page.close()
@@ -123,8 +139,8 @@ try {
 } finally { await browser.close() }
 
 const base = results.find(r => r.name === 'none') || { observerMs: 0, rafMs: 0 }
-console.log(`scenario: 60 batches × 25ms; TOOL_GROUPS=${process.env.TOOL_GROUPS || 20} → tool rows=${(process.env.TOOL_GROUPS || 20) * 2}; 30 sidebar rows mutate per batch`)
+console.log(`scenario: 60 batches × 25ms; TOOL_GROUPS=${process.env.TOOL_GROUPS || 20} → tool rows=${(process.env.TOOL_GROUPS || 20) * 2}; 30 sidebar rows mutate per batch; STREAM=${process.env.STREAM || 'text'}`)
 for (const r of results) {
   const d = r.name === 'none' ? 0 : r.observerMs + r.rafMs - base.observerMs - base.rafMs
-  console.log(`${r.name.padEnd(7)} obs=${r.observerMs.toFixed(1)}ms/max${r.observerMaxMs.toFixed(2)} raf=${r.rafMs.toFixed(1)}ms/max${r.rafMaxMs.toFixed(2)} (+${d.toFixed(1)} vs none) rec=${r.observerRecords} qsa=${r.qsa} closest=${r.closest} matches=${r.matches} hl+${r.hlAdds}/-${r.hlDels} frame p95=${r.p95FrameMs.toFixed(1)} max=${r.maxFrameMs.toFixed(1)}`)
+  console.log(`${r.name.padEnd(7)} obs=${r.observerMs.toFixed(1)}ms/max${r.observerMaxMs.toFixed(2)} raf=${r.rafMs.toFixed(1)}ms/max${r.rafMaxMs.toFixed(2)} (+${d.toFixed(1)} vs none) rec=${r.observerRecords} qsa=${r.qsa} closest=${r.closest} matches=${r.matches} contains=${r.contains} hl+${r.hlAdds}/-${r.hlDels} frame p95=${r.p95FrameMs.toFixed(1)} max=${r.maxFrameMs.toFixed(1)}`)
 }

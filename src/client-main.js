@@ -221,6 +221,7 @@ window.__ModuleLoader__.load({
 			return (value || "").split(/\s+/).filter(function (c) { return c && c !== "dshcp-pill" && c !== "dshcp-tool-path"; }).sort().join(" ");
 		};
 		var observer = new MutationObserver(function (mutations) {
+			var textBatch = new Set();
 			for (var m of mutations) {
 				if (m.type === "attributes") {
 					var name = m.attributeName;
@@ -243,12 +244,7 @@ window.__ModuleLoader__.load({
 					continue;
 				}
 				if (m.type === "characterData") {
-					ink.queueText(m.target);
-					rows.queueText(m.target);
-					paths.queueText(m.target);
-					var parent = m.target.parentElement;
-					var owner = parent !== null ? parent.closest("code") : null;
-					if (owner !== null) queue(owner);
+					textBatch.add(m.target);
 				} else if (m.type === "childList") {
 					for (var inkAdded of m.addedNodes) {
 						if (inkAdded.nodeType === 1) {
@@ -273,6 +269,16 @@ window.__ModuleLoader__.load({
 					}
 				}
 			}
+			// 同批去重：同一 Text 的多条 characterData 记录（宿主与平滑写入交错）
+			// 只做一次祖先链复核；入队幂等，flush 仍以批末 DOM 为准。
+			textBatch.forEach(function (node) {
+				ink.queueText(node);
+				rows.queueText(node);
+				paths.queueText(node);
+				var parent = node.parentElement;
+				var owner = parent !== null ? parent.closest("code") : null;
+				if (owner !== null) queue(owner);
+			});
 			// 彩虹刷入要在同一微任务里登记新文字：晚到下一帧会漏掉一帧原色。
 			ink.flush();
 			rows.flush();

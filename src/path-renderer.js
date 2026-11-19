@@ -8,8 +8,10 @@
  *   （适配器只读元素自身的 textContent/title/class，祖先之外的候选不受影响）。
  * - queueTree：重扫一个子树（新增/删除节点、容器语义属性变化）。
  * - configure：请求一次全量对账（初始挂载与设置变更）。
- * 扫描即对账：容器内未再命中（或归属失效）的旧装饰就地摘除；迁移的元素
- * 以 flush 时的 live-DOM contains 判定，天然不受变更记录顺序影响。
+ * 扫描即对账：子树 scope 先合并嵌套（DOM 子树不相交即嵌套），收集用单遍组合选择器；
+ * 旧装饰按子树内的装饰类名定位对账，不遍历全会话装饰表，开销只随变更范围增长。
+ * 容器内未再命中（或归属失效）的旧装饰就地摘除；迁移的元素以 flush 时的
+ * live-DOM 判定，天然不受变更记录顺序影响。全量对账仍以装饰表为准。
  */
 function createPathRenderer(root, getConfig) {
 	var CHAT_FLOW = '[data-chat-flow]';
@@ -21,6 +23,7 @@ function createPathRenderer(root, getConfig) {
 	var scopes = new Set();       // 待重扫的子树根
 	var needFull = false;
 	var ownClasses = new WeakMap();
+	var firstRows = new Map();    // 工具行 → 首个 disclosure-row；单次 flush 内有效（期间无结构变化）
 
 	function local(el, name) {
 		var suffix = '_' + name;
@@ -78,11 +81,17 @@ function createPathRenderer(root, getConfig) {
 		if (row === null) return null;
 		var tool = row.closest(TOOL_ROW);
 		// 宿主行只装饰工具行下第一个 disclosure-row，与元素级判定保持一致。
-		if (tool === null || tool.querySelector(ROW) !== row) return null;
+		if (tool === null || firstRowOf(tool) !== row) return null;
 		if (!TOOL_PATH_VARIANTS.has(tool.dataset.variant) || tool.dataset.state === 'error' || tool.dataset.state === 'stopped') return null;
 		if (local(el, 'fileLink')) return { el: el, value: el.textContent, kind: 'summary' };
 		if (local(el, 'summary') && (TOOL_PATH_VARIANTS.has(tool.dataset.tool) || detectPathLike(el.textContent))) return { el: el, value: el.textContent, kind: 'summary' };
 		return null;
+	}
+	/** 首个 disclosure-row 身份在一次 flush 内稳定：摘要里每个嵌套 span 都是候选，
+	 * 不缓存会让同一工具行被重复子树查询。 */
+	function firstRowOf(tool) {
+		if (!firstRows.has(tool)) firstRows.set(tool, tool.querySelector(ROW));
+		return firstRows.get(tool);
 	}
 	function labelCandidate(el) {
 		if (!el.hasAttribute('data-path-label') || !inChatFlow(el)) return null;
@@ -117,7 +126,13 @@ function createPathRenderer(root, getConfig) {
 	}
 	/** 元素级候选判定；命中顺序对应旧全量扫描的覆盖顺序（后者覆盖前者）。 */
 	function candidate(el) {
-		if (el.tagName === 'CODE' || excluded(el)) return null;
+		if (el.tagName === 'CODE') return null;
+		// 快路径：无适配器类名/属性且无语义容器祖先的元素不可能是任何候选。
+		// 流式复核的祖先链大多是普通 DIV/SPAN，为它们省去 excluded() 与逐项 closest。
+		if (!el.hasAttribute('data-path-label') && !local(el, 'fileLink') && !local(el, 'summary')
+			&& !local(el, 'title') && !local(el, 'fileMention') && !local(el, 'filePath') && !local(el, 'line')
+			&& el.closest('[data-disclosure-row], [data-search], [data-code-block-banner]') === null) return null;
+		if (excluded(el)) return null;
 		return mentionCandidate(el) || searchCandidate(el) || readTitleCandidate(el) || labelCandidate(el) || summaryCandidate(el);
 	}
 	/** 归属核验 + 装饰；owner 失效（含开关关闭）返回 false，由调用方摘除旧装饰。 */
@@ -130,20 +145,15 @@ function createPathRenderer(root, getConfig) {
 		apply(el, path, hit.kind);
 		return true;
 	}
-	function oneGather(container, selector, next) {
-		var found = container.querySelectorAll(selector);
+	/** 子树收集：五类候选位置合并为单遍组合选择器（button 已覆盖行内按钮），
+	 * 每个元素只做一次元素级判定（聊天流约束在候选内部核验）。 */
+	var COLLECT_SELECTOR = 'button, [data-path-label], [data-code-block-banner] [title], [data-search] :is(span, div), [data-disclosure-row] :is(a, span)';
+	function collect(container, next) {
+		var found = container.querySelectorAll(COLLECT_SELECTOR);
 		for (var i = 0; i < found.length; i++) {
 			var hit = candidate(found[i]);
 			if (hit !== null && !next.has(hit.el)) next.set(hit.el, hit);
 		}
-	}
-	/** 子树收集：按适配器选择器圈出候选，再逐个做元素级判定（聊天流约束在候选内部核验）。 */
-	function collect(container, next) {
-		oneGather(container, '[data-disclosure-row] :is(button, a, span)', next);
-		oneGather(container, 'button', next);
-		oneGather(container, '[data-path-label]', next);
-		oneGather(container, '[data-code-block-banner] [title]', next);
-		oneGather(container, '[data-search] :is(span, div)', next);
 	}
 	function scanScope(container) {
 		var next = new Map();
@@ -156,6 +166,20 @@ function createPathRenderer(root, getConfig) {
 			remove(el);
 		});
 		next.forEach(function (hit) { adopt(hit); });
+	}
+	/** 合并嵌套的子树 scope：只保留最外层。内层 scope 元素自身仍在 pendingSelf，
+	 * 其内部候选由外层 collect 覆盖，对账结果与逐棵扫描一致。 */
+	function coalesce(trees) {
+		var set = new Set(trees);
+		var out = [];
+		set.forEach(function (el) {
+			for (var p = el.parentElement; p !== null; p = p.parentElement) {
+				if (set.has(p)) return;
+				if (p === root) break;
+			}
+			out.push(el);
+		});
+		return out;
 	}
 	function scanSelf(el) {
 		// 脱离文档（含被直接移除或移出 root）的已装饰元素只能摘除，不能留着等以后再扫。
@@ -215,6 +239,7 @@ function createPathRenderer(root, getConfig) {
 		queueTree: queueTree,
 		isOwnClass: function (el) { return ownClasses.has(el) && ownClasses.get(el) === el.getAttribute('class'); },
 		flush: function () {
+			firstRows.clear();
 			if (needFull) {
 				needFull = false;
 				pendingSelf.clear();
@@ -224,9 +249,26 @@ function createPathRenderer(root, getConfig) {
 			}
 			if (pendingSelf.size === 0 && scopes.size === 0) return;
 			var selves = Array.from(pendingSelf); pendingSelf.clear();
-			var trees = Array.from(scopes); scopes.clear();
+			var trees = coalesce(scopes); scopes.clear();
 			for (var i = 0; i < selves.length; i++) scanSelf(selves[i]);
-			for (var j = 0; j < trees.length; j++) scanScope(trees[j]);
+			if (trees.length === 0) return;
+			var next = new Map();
+			for (var j = 0; j < trees.length; j++) {
+				if (trees[j].isConnected && root.contains(trees[j])) collect(trees[j], next);
+			}
+			// 增量对账只定位变更子树内的已装饰后代（装饰类名即标记），不遍历全会话
+			// 装饰表：宿主 class 重写另有 queueSelf 复核兜底，全量对账仍以装饰表为准。
+			for (var k = 0; k < trees.length; k++) {
+				var found = trees[k].querySelectorAll('.dshcp-tool-path');
+				for (var m = 0; m < found.length; m++) {
+					var el = found[m];
+					if (!applied.has(el)) continue;
+					var hit = next.get(el);
+					if (hit !== undefined && adopt(hit)) { next.delete(el); continue; }
+					remove(el);
+				}
+			}
+			next.forEach(function (hit) { adopt(hit); });
 		},
 		configure: function () { needFull = true; },
 		hasPending: function () { return needFull || pendingSelf.size > 0 || scopes.size > 0; },

@@ -1,6 +1,6 @@
 # 开发与验证
 
-本文描述当前工作区 **0.8.5** 的源码与交付流程；实际发布状态以 registry 和 GitHub Release 为准。包版本字段见 [package.json](../package.json)；产品约定见 [DESIGN.md](../DESIGN.md)，验证边界见 [兼容性说明](compatibility.md)。
+本文描述当前工作区 **0.8.6** 的源码与交付流程；实际发布状态以 registry 和 GitHub Release 为准。包版本字段见 [package.json](../package.json)；产品约定见 [DESIGN.md](../DESIGN.md)，验证边界见 [兼容性说明](compatibility.md)。
 
 ## 环境与完整自检
 
@@ -59,6 +59,10 @@ node scripts/benchmark-think-ink.mjs "<待测 lib/client.js 路径>" dist/ink-be
 ```
 
 [benchmark-think-ink.mjs](../scripts/benchmark-think-ink.mjs) 使用相同流式输入、300 段历史文本和工作区行更新，对比 `thinkRainbow` 关闭／开启时的高亮 add/delete 次数、活跃区间峰值、动画回调与观察器耗时。默认结果写入 `dist/think-ink-benchmark-results.json`。它衡量合成场景工作量；帧间隔会受显示刷新率、CPU 与其他进程影响，不等于生产桌面流畅度验收。固定预算与行为由 [think-ink.test.mjs](../tests/think-ink.test.mjs) 拦截，不用不稳定的绝对耗时作为 CI 门槛。
+
+观察器归因基准 [benchmark-observer.mjs](../scripts/benchmark-observer.mjs) 按功能开关计量观察器与 RAF 开销：`TOOL_GROUPS` 缩放工具行数量，`CONFIGS` 选择开关组合；`STREAM=replace` 模拟宿主 Markdown 重渲染（每批替换正文子树并周期性新增工具行），配合 `contains()` 计数核验路径管线开销不随会话长度增长。
+
+显示平滑基准 [benchmark-display-smooth.mjs](../scripts/benchmark-display-smooth.mjs) 用真实 React 包装流式灌入长回复（`CHUNKS` 控制块数，默认 160 ≈ 10.6k 字符），对比 `displaySmooth` 关闭／开启时的观察器/RAF 耗时、码点拆分量与 `nodeValue` 写入量。两个基准都只访问路由拦截的隔离页面，不连接生产 DSH；耗时与帧间隔受 CPU 和刷新率影响，不等于生产桌面流畅度验收，行为契约仍由对应浏览器测试拦截。
 
 可选的真实 Cordis 生命周期检查：
 

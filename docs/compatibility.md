@@ -1,12 +1,12 @@
 # 兼容性与权限边界
 
-本文针对 **0.8.5** 的代码。六套预设、自定义色板、双 Tab 设置页、图标、字体与持久化能力自 `0.3.0` 起提供，字体能力分类与搜索自 `0.4.0` 起提供；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
+本文针对 **0.8.6** 的代码。六套预设、自定义色板、双 Tab 设置页、图标、字体与持久化能力自 `0.3.0` 起提供，字体能力分类与搜索自 `0.4.0` 起提供；[package.json](../package.json) 的版本字段不构成已发布的证据，实际发布状态以 registry 和 GitHub Release 为准。开发入口见 [开发与验证](development.md)，行为约定见 [DESIGN.md](../DESIGN.md)。
 
 ## 已知证据，不扩大结论
 
 | 层级 | 已知事实 | 不能据此声称 |
 | --- | --- | --- |
-| 历史 DSH 集成 | 原有行内渲染在 Core `0.2.1-alpha.1` / Cordis `4.0.5-alpha.1` 上有历史验证；包清单（`dsh.compatibility.dshReleases`）当前标记 Core `0.2.1-rc.3`（桌面运行时 `desktop-runtime.json` 所载版本，Cordis `4.0.5`）为 compatible，该声明由维护者按当前桌面 Core 更新，本机构建与浏览器测试通过，尚未在 `rc.3` 的真实宿主现场重新验证 | `rc.3` 已完成现场验证；旧 Core 或其他 Core 自动兼容 |
+| 历史 DSH 集成 | 原有行内渲染在 Core `0.2.1-alpha.1` / Cordis `4.0.5-alpha.1` 上有历史验证；包清单（`dsh.compatibility.dshReleases`）当前标记 Core `0.2.2-rc.3`（桌面运行时 `desktop-runtime.json` 所载 dshVersion，壳 `2.0.23-next`，Cordis `4.1.0`）为 compatible，依据 0.8.6 的安装树源码契约核对与隔离浏览器测试，真实宿主整页验收另行记录 | Core `0.2.2-rc.3` 已完成真实宿主整页验收；旧 Core 或其他 Core 自动兼容 |
 | 当前宿主现场 | 桌面 Profile 安装本地未发布包、独立 Chrome 连接真实宿主（Core `0.2.1-alpha.2`）：设置 slots 入口、草稿隔离、保存实际聊天色板、三个真实文件节点的图标、语法关闭后 Range 清空、导出 JSON、刷新恢复均通过；41 个真实聊天 code 子节点身份未被改写；深/浅标题颜色与宿主正文对齐 | 生产 Electron 窗口本身已被直接操作；npm `0.2.0` 已包含这些功能 |
 | 浏览器渲染 | 真实 Chrome 测试检查最终 bundle 的颜色、Highlight ranges、徽章、主题、动态节点与卸载；新增设置/动态测试已在本机通过 | 所有浏览器、桌面壳、宿主主题都通过；测试夹具等于生产消息页 |
 | 设置页测试 | [settings-browser.test.mjs](../tests/settings-browser.test.mjs) 使用真实 React/ReactDOM，Button、Switch、Input 和 slots 为结构测试替身；新增保存栏验证使用嵌套 overflow 滚动容器，检查宽屏／窄屏下滚到下方和表单末尾仍能保存 | 控件样式等于生产宿主真实控件；顶部吸附已部署到生产实例；完整设置导航、生产 Shiki 高亮器已端到端验证 |
@@ -22,6 +22,8 @@ Font Lab 合并版本的浏览器内行为已由隔离 Chrome + React 测试覆�
 聊天路径适配（0.5.0）基于本地宿主源码结构，已在隔离 Chrome 中验证路径、点击保持、动态归属、配置与卸载；未进行真实宿主整页验收。少量 CSS-module 局部名回退仍需随宿主升级回归。
 
 0.8.4 已按本机 Core `0.2.2-rc.1` 安装树逐项核对：工具行 ToolRow 根、`TOOL_VARIANTS`（含 read/write/edit）、`fileLink`/`summary` 局部名、`settings.section` slots、`conversation.chat.node` 的 `assistant-step` 条目、滚动端口与跟随意图标记、`data-chat-flow-kind="context"`（动态路由值，仍输出）、bash 行 `data-sample` 与 `--dsw-alias-*` 令牌均保留；读取标题归属行扩展为同时接受 `data-variant="read"`。两项不可本地核对：宿主 primitives 包实体不随 npm 分发，MarkdownText 的 `fileMention` 局部名与 `data-ref-chip` 的现行替代标记只能现场回归；DisclosureRow 头/行 DOM 是否随 0.2.2-rc.1 的新 props（rowClassName 等）变化同样未验证。宿主 Cordis 依赖为 4.1.0，本机实际入口的加载与卸载检查通过。
+
+0.8.6 已按本机 Core `0.2.2-rc.3`（壳 `2.0.23-next`，Electron 44.7.0，Cordis 4.1.0，以 `desktop-runtime.json` 的 dshVersion 为准）安装树源码逐项复核：ToolRow 根三属性（`data-variant`/`data-tool`/`data-state`）、`TOOL_VARIANTS` 的 read/write/edit 覆盖、DisclosureRow「根 > 头 > 行」三层结构（rowClassName 只追加类名）、会话根 `data-chat-following-tail` 与 `data-conversation-scroll` 端口、`data-chat-flow-kind` 动态路由值与 `assistant-step` 条目、think 行 `data-variant="think"`/`data-state` 与 `data-streaming`/`data-markdown-variant="compact"` 标记、`fileMention`/`fileLink` 局部名及图片引用成功时移除 title 的语义、`data-ref-chip`、PathLabel、代码栏横幅、搜索/读取/diff/终端容器与 `--dsw-alias-*` 令牌均保留。桌面 ASAR 含 primitives 源码，0.8.4 未能本地核对的两项（`fileMention` 现行形态、`data-ref-chip`）本次已补源码核对；真实宿主的点击与渲染现场回归仍缺。新增宿主变体映射（pwsh→bash、cordis_runtime_inspect→read、run_code→code）不改变路径判定与类别兜底边界。包清单 `dshReleases` 同步更新为 `0.2.2-rc.3`，该声明以源码契约核对与隔离浏览器测试为依据。另记录一项现场观察：运行态回复根节点带 `data-streaming`（AssistantNodeView 按 `status==='running'` 传入），落在显示平滑的跳过列表内，揭示队列在该宿主上不接管运行态回复正文——这是 0.8.3 思考区保护的既有语义，收窄跳过范围属独立任务。
 
 当前动作行分类适配依据本次核对的宿主标准 DisclosureRow、技能／Cordis 独立头部及聊天 context 标记；隔离测试覆盖全部已映射工具、未知工具兜底与双主题。这不代表任意第三方插件自建卡片也自动兼容；没有这些语义标记和头部结构时不猜测正文。新增分类和顶部保存栏的本地构建未据此扩大 Core 兼容声明，也不意味着已经安装到正在运行的实例。
 
